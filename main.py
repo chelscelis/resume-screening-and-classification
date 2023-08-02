@@ -7,8 +7,7 @@ Using K-Nearest Neighbors (KNN) algorithm and Cosine Similarity
 st.divider()
 
 st.header('Input')
-# TODO: finalize job description file type
-uploadedJobDescription = st.file_uploader('Upload Job Description')
+uploadedJobDescription = st.file_uploader('Upload Job Description', type = 'txt')
 uploadedResume = st.file_uploader('Upload Resume', type = 'csv')
 isButtonDisabled = True
 
