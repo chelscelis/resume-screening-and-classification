@@ -1,12 +1,11 @@
 import nltk
 import re
-import string
 import time
 import warnings
 import streamlit as st 
 import pandas as pd
-from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
 nltk.download('stopwords')
@@ -45,28 +44,11 @@ if __name__ == "__main__":
         with st.spinner('Classifying resumes'):
             knn_df = pd.read_csv(uploadedResume)
             knn_df['cleanedResume'] = knn_df.Resume.apply(lambda x: cleanResume(x))
-            new_knn_df = knn_df.copy()
-            oneSetOfStopWords = set(stopwords.words('english')+['``',"''"])
-            totalWords =[]
-            Sentences = knn_df['Resume'].values
-            cleanedSentences = ""
-            for records in Sentences:
-                cleanedText = cleanResume(records)
-                cleanedSentences += cleanedText
-                requiredWords = nltk.word_tokenize(cleanedText)
-                for word in requiredWords:
-                    if word not in oneSetOfStopWords and word not in string.punctuation:
-                        totalWords.append(word)
-                wordfreqdist = nltk.FreqDist(totalWords)
-                mostcommon = wordfreqdist.most_common(50)
             var_mod = ['Category']
             le = LabelEncoder()
             for i in var_mod:
                 knn_df[i] = le.fit_transform(knn_df[i])
-            knn_df.Category.value_counts()
-            new_knn_df.Category.value_counts()
-            del new_knn_df
-            requiredText = knn_df['cleanResume'].values
+            requiredText = knn_df['cleanedResume'].values
             requiredTarget = knn_df['Category'].values
             word_vectorizer = TfidfVectorizer(
                 sublinear_tf = True,
