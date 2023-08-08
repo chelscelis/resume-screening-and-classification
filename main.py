@@ -22,6 +22,7 @@ def cleanResume(resumeText):
     return resumeText
 
 if __name__ == "__main__":
+# TODO: load pre-trained model (joblib)
     st.write("""
     # Resume Screening & Classification
     Using K-Nearest Neighbors (KNN) algorithm and Cosine Similarity
@@ -44,20 +45,18 @@ if __name__ == "__main__":
         with st.spinner('Classifying resumes'):
             knn_df = pd.read_csv(uploadedResume)
             knn_df['cleanedResume'] = knn_df.Resume.apply(lambda x: cleanResume(x))
-            var_mod = ['Category']
-            le = LabelEncoder()
-            for i in var_mod:
-                knn_df[i] = le.fit_transform(knn_df[i])
             requiredText = knn_df['cleanedResume'].values
-            requiredTarget = knn_df['Category'].values
             word_vectorizer = TfidfVectorizer(
                 sublinear_tf = True,
                 stop_words = 'english'
             )
             word_vectorizer.fit(requiredText)
             WordFeatures = word_vectorizer.transform(requiredText)
-            X_train,X_test,y_train,y_test = train_test_split(WordFeatures,requiredTarget,random_state=1, test_size=0.2,shuffle=True, stratify=requiredTarget)
-            warnings.filterwarnings('ignore')
+            # TODO: insert loaded model
+
+            # TODO: add predicted job category to dataframe
+
+            # warnings.filterwarnings('ignore')
 
         endTime = time.time()
         executionTime = endTime - startTime
