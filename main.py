@@ -22,6 +22,7 @@ def cleanResume(resumeText):
 
 if __name__ == "__main__":
 # TODO: load pre-trained model (joblib)
+# classifier = joblib.load(model_filename)
     st.write("""
     # Resume Screening & Classification
     Using K-Nearest Neighbors (KNN) algorithm and Cosine Similarity
@@ -41,7 +42,7 @@ if __name__ == "__main__":
         st.header('Output')
         startTime = time.time()
 
-        with st.spinner('Classifying resumes'):
+        with st.spinner('Classifying resumes ...'):
             knn_df = pd.read_csv(uploadedResume)
             knn_df['cleanedResume'] = knn_df.Resume.apply(lambda x: cleanResume(x))
             requiredText = knn_df['cleanedResume'].values
@@ -52,11 +53,19 @@ if __name__ == "__main__":
             word_vectorizer.fit(requiredText)
             WordFeatures = word_vectorizer.transform(requiredText)
             # TODO: insert loaded model
+            # jobCategories = classifier.predict(WordFeatures)
 
             # TODO: add predicted job category to dataframe
+            # knn_df['Category'] = le.inverse_transform(jobCategories)
 
             # warnings.filterwarnings('ignore')
+
+        with st.spinner('Ranking resumes ...'):
+            # TODO: insert ranking algo
+            time.sleep(10)
 
         endTime = time.time()
         executionTime = endTime - startTime
         st.success(f'Finished in {executionTime:.2f} seconds')
+
+        st.dataframe(knn_df)
