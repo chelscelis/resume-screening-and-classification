@@ -44,14 +44,14 @@ if __name__ == "__main__":
 
         with st.spinner('Classifying resumes ...'):
             knn_df = pd.read_csv(uploadedResume)
-            knn_df['cleanedResume'] = knn_df.Resume.apply(lambda x: cleanResume(x))
-            requiredText = knn_df['cleanedResume'].values
-            word_vectorizer = TfidfVectorizer(
-                sublinear_tf = True,
-                stop_words = 'english'
-            )
-            word_vectorizer.fit(requiredText)
-            WordFeatures = word_vectorizer.transform(requiredText)
+            # knn_df['cleanedResume'] = knn_df.Resume.apply(lambda x: cleanResume(x))
+            # requiredText = knn_df['cleanedResume'].values
+            # word_vectorizer = TfidfVectorizer(
+            #     sublinear_tf = True,
+            #     stop_words = 'english'
+            # )
+            # word_vectorizer.fit(requiredText)
+            # WordFeatures = word_vectorizer.transform(requiredText)
             # TODO: insert loaded model
             # jobCategories = classifier.predict(WordFeatures)
 

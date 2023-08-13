@@ -7,14 +7,13 @@ import pandas as pd
 from nltk.corpus import stopwords
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
-from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn import metrics
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn import metrics
+from gensim.models import Word2Vec
 
-nltk.download('stopwords')
 nltk.download('punkt')
+nltk.download('stopwords')
 
 def cleanResume(resumeText):
     resumeText = re.sub('http\S+\s*', ' ', resumeText)  # remove URLs
@@ -31,38 +30,34 @@ file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-tria
 
 startTime = time.time()
 
-df=pd.read_csv(file_path)
+df = pd.read_csv(file_path)
 df['cleaned_resume'] = df.Resume.apply(lambda x: cleanResume(x))
-oneSetOfStopWords = set(stopwords.words('english')+['``',"''"])
-totalWords =[]
-Sentences = df['Resume'].values
-cleanedSentences = ""
-for records in Sentences:
-    cleanedText = cleanResume(records)
-    cleanedSentences += cleanedText
-    requiredWords = nltk.word_tokenize(cleanedText)
-    for word in requiredWords:
-        if word not in oneSetOfStopWords and word not in string.punctuation:
-            totalWords.append(word)
-wordfreqdist = nltk.FreqDist(totalWords)
-mostcommon = wordfreqdist.most_common(50)
-print(mostcommon)
 var_mod = ['Category']
 le = LabelEncoder()
 for i in var_mod:
     df[i] = le.fit_transform(df[i])
 requiredText = df['cleaned_resume'].values
 requiredTarget = df['Category'].values
-word_vectorizer = TfidfVectorizer(
-    sublinear_tf=True,
-    stop_words='english')
-word_vectorizer.fit(requiredText)
-WordFeatures = word_vectorizer.transform(requiredText)
-X_train,X_test,y_train,y_test = train_test_split(WordFeatures,requiredTarget,random_state=1, test_size=0.2,shuffle=True, stratify=requiredTarget)
-print(X_train.shape)
-print(X_test.shape)
+
+# Tokenize sentences and build Word2Vec model
+tokenized_resumes = [nltk.word_tokenize(resume.lower()) for resume in requiredText]
+word2vec_model = Word2Vec(tokenized_resumes, vector_size=300, window=10, min_count=1, sg=1, epochs=50)  # You can adjust the parameters as needed
+
+# Generate document embeddings using Word2Vec
+WordFeatures = []
+for tokens in tokenized_resumes:
+    embeddings = [word2vec_model.wv[word] for word in tokens if word in word2vec_model.wv]
+    if embeddings:
+        doc_embedding = sum(embeddings) / len(embeddings)  # Average of word embeddings
+        WordFeatures.append(doc_embedding)
+    else:
+        WordFeatures.append([0.0] * 100)  # Default value for empty embeddings
+
+X_train, X_test, y_train, y_test = train_test_split(WordFeatures, requiredTarget, random_state=1, test_size=0.2, shuffle=True, stratify=requiredTarget)
+print(len(X_train))
+print(len(X_test))
 warnings.filterwarnings('ignore')
-clf = OneVsRestClassifier(KNeighborsClassifier())
+clf = OneVsRestClassifier(KNeighborsClassifier(n_neighbors=5, weights='distance'))
 clf.fit(X_train, y_train)
 prediction = clf.predict(X_test)
 print('Accuracy of KNeighbors Classifier on training set: {:.2f}'.format(clf.score(X_train, y_train)))

@@ -12,7 +12,13 @@ resumes = [
     "Experienced software engineer with a background in Python and machine learning.",
     "Frontend developer skilled in HTML, CSS, and JavaScript.",
     "Data scientist proficient in Python and R, with a focus on machine learning models.",
-    "Software engineer with experience in python and machine learning.",
+    "Software engineer with experience in Python and machine learning.",
+    "Passionate software engineer experienced in developing Python applications and implementing machine learning algorithms.",
+    "Machine learning engineer with a strong Python background and a track record of creating effective ML solutions.",
+    "Experienced Python developer with a specialization in machine learning and a proven ability to deliver high-quality software.",
+    "Software engineer with a keen interest in machine learning and a demonstrated history of developing Python-based applications.",
+    "Results-driven programmer with expertise in Python and machine learning techniques, ready to contribute as a software engineer.",
+    "Experienced software developer proficient in Python and well-versed in machine learning principles.",
 ]
 
 # Download pre-trained Word2Vec word embeddings
