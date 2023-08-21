@@ -51,7 +51,9 @@ DocFeatures = [doc2vec_model.dv[str(i)] for i in range(len(tokenized_resumes))]
 X_train, X_test, y_train, y_test = train_test_split(DocFeatures, requiredTarget, random_state=1, test_size=0.2, shuffle=True, stratify=requiredTarget)
 
 warnings.filterwarnings('ignore')
-clf = OneVsRestClassifier(KNeighborsClassifier(n_neighbors=5, weights='distance'))
+clf = OneVsRestClassifier(KNeighborsClassifier(n_neighbors=13, 
+                                               weights='distance'
+                                               ))
 clf.fit(X_train, y_train)
 prediction = clf.predict(X_test)
 

@@ -12,6 +12,7 @@ from sklearn import metrics
 
 file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/kaggle-KNN-2482.csv'
 # file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/resume_dataset.csv'
+# file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/Raw_Resume.csv'
 resumeDataSet = pd.read_csv(file_path)
 
 resumeDataSet['cleaned_resume'] = ''
@@ -58,7 +59,7 @@ requiredTarget = resumeDataSet['Category'].values
 word_vectorizer = TfidfVectorizer(
     sublinear_tf=True,
     stop_words='english',
-    max_features=10000
+    # max_features=10000
 )
 word_vectorizer.fit(requiredText)
 WordFeatures = word_vectorizer.transform(requiredText)
@@ -69,9 +70,11 @@ X_train,X_test,y_train,y_test = train_test_split(WordFeatures,requiredTarget,ran
 print(X_train.shape)
 print(X_test.shape)
 
-clf = OneVsRestClassifier(KNeighborsClassifier(n_neighbors=31))
+clf = OneVsRestClassifier(KNeighborsClassifier(n_neighbors=61, weights='distance'))
 clf.fit(X_train, y_train)
 prediction = clf.predict(X_test)
+
+print('Checking Accuracy .....')
 print('Accuracy of KNeighbors Classifier on training set: {:.2f}'.format(clf.score(X_train, y_train)))
 print('Accuracy of KNeighbors Classifier on test set: {:.2f}'.format(clf.score(X_test, y_test)))
 
