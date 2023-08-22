@@ -2,24 +2,16 @@ import numpy as np
 import pandas as pd
 import warnings
 warnings.filterwarnings('ignore')
-from sklearn.naive_bayes import MultinomialNB
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn import metrics
-from sklearn.metrics import accuracy_score
-from pandas.plotting import scatter_matrix
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn import metrics
+from sklearn.neighbors import KNeighborsClassifier, NeighborhoodComponentsAnalysis
 
-file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/kaggle-KNN-2482.csv'
+# file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/kaggle-KNN-2482.csv'
 # file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/resume_dataset.csv'
-# file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/Raw_Resume.csv'
+file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/Raw_Resume.csv'
 resumeDataSet = pd.read_csv(file_path)
 
 resumeDataSet['cleaned_resume'] = ''
-resumeDataSet.head()
-
-print ("Displaying the distinct categories of resume -")
-print (resumeDataSet['Category'].unique())
 
 print ("Displaying the distinct categories of resume and the number of records belonging to each category -")
 print (resumeDataSet['Category'].value_counts())
@@ -51,7 +43,6 @@ for i in var_mod:
 
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
-from scipy.sparse import hstack
 
 requiredText = resumeDataSet['cleaned_resume'].values
 requiredTarget = resumeDataSet['Category'].values
@@ -59,7 +50,7 @@ requiredTarget = resumeDataSet['Category'].values
 word_vectorizer = TfidfVectorizer(
     sublinear_tf=True,
     stop_words='english',
-    # max_features=10000
+    max_features=4000
 )
 word_vectorizer.fit(requiredText)
 WordFeatures = word_vectorizer.transform(requiredText)
@@ -70,7 +61,12 @@ X_train,X_test,y_train,y_test = train_test_split(WordFeatures,requiredTarget,ran
 print(X_train.shape)
 print(X_test.shape)
 
-clf = OneVsRestClassifier(KNeighborsClassifier(n_neighbors=61, weights='distance'))
+clf = OneVsRestClassifier(KNeighborsClassifier(n_neighbors=3, 
+                                               weights='distance',
+                                               # p=2,
+                                               algorithm='ball_tree',
+                                               # metric='cosine'
+                                               ))
 clf.fit(X_train, y_train)
 prediction = clf.predict(X_test)
 

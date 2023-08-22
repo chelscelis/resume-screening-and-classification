@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
         with st.spinner('Ranking resumes ...'):
             # TODO: insert ranking algo
-            time.sleep(10)
+            time.sleep(3)
 
         endTime = time.time()
         executionTime = endTime - startTime
