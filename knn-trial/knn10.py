@@ -6,6 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn import metrics
+import joblib
 
 # Load dataset
 file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/linkedin.csv'
@@ -58,12 +59,17 @@ n_neighbors_values = [85]
 for n_neighbors in n_neighbors_values:
     print(f"Testing with n_neighbors = {n_neighbors}")
     
-    clf = OneVsRestClassifier(KNeighborsClassifier(n_neighbors=n_neighbors, metric='cosine', weights='distance'))
-    clf.fit(X_train, y_train)
-    prediction = clf.predict(X_test)
+    knn = OneVsRestClassifier(KNeighborsClassifier(n_neighbors=n_neighbors, metric='cosine', weights='distance'))
+    knn.fit(X_train, y_train)
+
+    # Save the model
+    knnModel_filename = f'knn_model.joblib'
+    joblib.dump(knn, knnModel_filename)
+
+    prediction = knn.predict(X_test)
     
-    train_accuracy = clf.score(X_train, y_train)
-    test_accuracy = clf.score(X_test, y_test)
+    train_accuracy = knn.score(X_train, y_train)
+    test_accuracy = knn.score(X_test, y_test)
     classification_report = metrics.classification_report(y_test, prediction)
     
     print('Accuracy of KNeighbors Classifier on training set: {:.4f}'.format(train_accuracy))
