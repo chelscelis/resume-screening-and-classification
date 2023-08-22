@@ -18,6 +18,7 @@ def cleanResume(resumeText):
     resumeText = re.sub('[%s]' % re.escape("""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""), ' ', resumeText)  # remove punctuations
     resumeText = re.sub(r'[^\x00-\x7f]',r' ', resumeText) 
     resumeText = re.sub('\s+', ' ', resumeText)  # remove extra whitespace
+    resumeText = resumeText.lower()
     return resumeText
 
 if __name__ == "__main__":

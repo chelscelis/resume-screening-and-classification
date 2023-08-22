@@ -52,6 +52,7 @@ X_train, X_test, y_train, y_test = train_test_split(DocFeatures, requiredTarget,
 
 warnings.filterwarnings('ignore')
 clf = OneVsRestClassifier(KNeighborsClassifier(n_neighbors=13, 
+                                               metric='cosine',
                                                weights='distance'
                                                ))
 clf.fit(X_train, y_train)
