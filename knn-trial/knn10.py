@@ -42,6 +42,8 @@ resumeDataSet['cleaned_resume'] = resumeDataSet['Resume'].apply(cleanResume)
 # Label encoding
 le = LabelEncoder()
 resumeDataSet['Category'] = le.fit_transform(resumeDataSet['Category'])
+le_filename = f'label_encoder.joblib'
+joblib.dump(le, le_filename)
 
 # Prepare data for training
 requiredText = resumeDataSet['cleaned_resume'].values
