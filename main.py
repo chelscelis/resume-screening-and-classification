@@ -1,12 +1,9 @@
-import joblib
-import re
 import time
 import streamlit as st 
 import pandas as pd
 
 from sklearn.feature_extraction.text import TfidfVectorizer
-# from sklearn.preprocessing import LabelEncoder
-from utils import loadKnnModel, loadLabelEncoder, cleanText
+from utils import loadKnnModel, loadLabelEncoder, cleanText, dimensionalityReduction
 
 st.write("""
 # Resume Screening & Classification
@@ -30,15 +27,16 @@ if st.button('Start Processing', disabled = isButtonDisabled):
     # CLASSIFICATION PROCESS
     with st.spinner('Classifying resumes ...'):
         resumeDF = pd.read_csv(uploadedResume)
-        # resumeDF['cleanedResume'] = resumeDF.Resume.apply(lambda x: cleanText(x))
-        # resumeText = resumeDF['cleanedResume'].values
-        # vectorizer = TfidfVectorizer(sublinear_tf = True, stop_words = 'english', max_features=15071)
-        # vectorizer.fit(resumeText)
-        # wordFeatures = vectorizer.transform(resumeText)
-        # knn = loadKnnModel()
-        # predictedJobCategories = knn.predict(wordFeatures)
-        # le = loadLabelEncoder()
-        # resumeDF['Job Category'] = le.inverse_transform(predictedJobCategories)
+        resumeDF['cleanedResume'] = resumeDF.Resume.apply(lambda x: cleanText(x))
+        resumeText = resumeDF['cleanedResume'].values
+        vectorizer = TfidfVectorizer(sublinear_tf = True, stop_words = 'english')
+        vectorizer.fit(resumeText)
+        wordFeatures = vectorizer.transform(resumeText)
+        features = dimensionalityReduction(wordFeatures)
+        knn = loadKnnModel()
+        predictedCategories = knn.predict(features)
+        le = loadLabelEncoder()
+        resumeDF['Industry Category'] = le.inverse_transform(predictedCategories)
 
     # RANKING PROCESS
     with st.spinner('Ranking resumes ...'):

@@ -1,3 +1,4 @@
+import joblib
 import numpy as np
 import pandas as pd
 import warnings
@@ -9,35 +10,10 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer, PorterStemmer
 
-file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/kaggle-KNN-2482.csv'
+# file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/kaggle-KNN-2482.csv'
+file_path = '~/Downloads/2482_edited.csv'
 
 resumeDataSet = pd.read_csv(file_path)
-
-# FOR 2482
-resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'ACCOUNTANT']
-resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'ADVOCATE']
-resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'AGRICULTURE']
-resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'APPAREL']
-resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'ARTS']
-resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'AUTOMOBILE']
-resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'AVIATION']
-resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'BANKING']
-resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'BPO']
-resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'BUSINESS-DEVELOPMENT']
-resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'CHEF']
-resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'CONSTRUCTION']
-resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'CONSULTANT']
-resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'DESIGNER']
-resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'DIGITAL-MEDIA']
-# resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'ENGINEERING']
-# resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'FINANCE']
-resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'FITNESS']
-# resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'HEALTHCARE']
-# resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'HR']
-# resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'INFORMATION-TECHNOLOGY']
-resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'PUBLIC-RELATIONS']
-resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'SALES']
-resumeDataSet = resumeDataSet[resumeDataSet['Category'] != 'TEACHER']
 
 stop_words = set(stopwords.words('english'))
 lemmatizer = WordNetLemmatizer()
@@ -58,22 +34,19 @@ def cleanResume(resumeText):
     words = resumeText.split()
     words = [word for word in words if word.lower() not in stop_words]
     words = [stemmer.stem(word.lower()) for word in words if word.lower() not in stop_words]
-    words = [lemmatizer.lemmatize(word.lower()) for word in words if word.lower() not in stop_words]
     resumeText = ' '.join(words)
     return resumeText
 
 
 resumeDataSet['cleaned_resume'] = resumeDataSet.Resume.apply(lambda x: cleanResume(x))
-resumeDataSet.to_excel('letsee.xlsx', index=False)
 
 from sklearn.preprocessing import LabelEncoder
-
-var_mod = ['Category']
 le = LabelEncoder()
-for i in var_mod:
-    resumeDataSet[i] = le.fit_transform(resumeDataSet[i])
+resumeDataSet['Category'] = le.fit_transform(resumeDataSet['Category'])
+le_filename = f'label_encoder.joblib'
+joblib.dump(le, le_filename)
 
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 requiredText = resumeDataSet['cleaned_resume'].values
@@ -82,29 +55,61 @@ requiredTarget = resumeDataSet['Category'].values
 word_vectorizer = TfidfVectorizer(
     stop_words='english',
     sublinear_tf=True,  # Use logarithmic form for frequency
-    max_features=12000
+    # max_features=1500
 )
 
 word_vectorizer.fit(requiredText)
 WordFeatures = word_vectorizer.transform(requiredText)
 
+from scipy.sparse import csr_matrix
+nca = NeighborhoodComponentsAnalysis(n_components=300, random_state=42)
+WordFeatures = nca.fit_transform(WordFeatures.toarray(), requiredTarget)
+nca_filename = f'nca_model.joblib'
+joblib.dump(nca, nca_filename)
+
+
 X_train,X_test,y_train,y_test = train_test_split(WordFeatures,requiredTarget,random_state=42, test_size=0.2,shuffle=True, stratify=requiredTarget)
+# X_train,X_test,y_train,y_test = train_test_split(WordFeatures,requiredTarget,random_state=42, test_size=0.2)
 print(X_train.shape)
 print(X_test.shape)
 
 # n_neighbors_values = [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 63, 65, 67, 69, 71, 73, 75, 77, 79, 81, 83, 85, 87, 89, 91, 93, 95, 97, 99]
-# n_neighbors_values = [101,103,105,107,109,201,203,205,207,209]
-n_neighbors_values = [41]
-for n_neighbors in n_neighbors_values:
-    print(f"Testing with n_neighbors = {n_neighbors}")
+# weights = ["uniform", "distance"]
+# metric = ["euclidean", "manhattan", "minkowski", "cosine"]
+# algorithm = ['ball_tree', 'kd_tree', 'brute', 'auto']
+# param_grid = dict(n_neighbors=n_neighbors_values, weights=weights, metric=metric, algorithm=algorithm)
+# knn = KNeighborsClassifier()
+# gs = GridSearchCV(estimator=knn, param_grid=param_grid, scoring="accuracy", verbose=1, cv=10, n_jobs=3)
+# grid_search = gs.fit(X_train, y_train)
+# best_score = grid_search.best_score_
+# best_parameters = grid_search.best_params_
+# print("Best Score:", best_score)
+# print("Best Parameters:", best_parameters)
 
-    clf = OneVsRestClassifier(KNeighborsClassifier(n_neighbors=n_neighbors, 
-                                                   metric='cosine',
-                                                   weights='distance',
-                                                   ))
-    clf.fit(X_train, y_train)
-    prediction = clf.predict(X_test)
-    
-    print('Accuracy of KNeighbors Classifier on training set: {:.2f}'.format(clf.score(X_train, y_train)))
-    print('Accuracy of KNeighbors Classifier on test set: {:.2f}'.format(clf.score(X_test, y_test)))
-    print("\n Classification report for classifier %s:\n%s\n" % (clf, metrics.classification_report(y_test, prediction)))
+knn = KNeighborsClassifier(n_neighbors=1, 
+                           metric='manhattan',
+                           weights='uniform',
+                           algorithm='ball_tree',
+                           )
+knn.fit(X_train, y_train)
+
+knnModel_filename = f'knn_model.joblib'
+joblib.dump(knn, knnModel_filename)
+
+prediction = knn.predict(X_test)
+print('Accuracy of KNeighbors Classifier on training set: {:.2f}'.format(knn.score(X_train, y_train)))
+print('Accuracy of KNeighbors Classifier on test set: {:.2f}'.format(knn.score(X_test, y_test)))
+print("\n Classification report for classifier %s:\n%s\n" % (knn, metrics.classification_report(y_test, prediction)))
+
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+confusion_matrix = metrics.confusion_matrix(y_test, prediction)
+
+# Create a heatmap
+plt.figure(figsize=(10, 10))
+sns.heatmap(confusion_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=le.classes_, yticklabels=le.classes_)
+plt.xlabel('Predicted')
+plt.ylabel('True')
+plt.title('Confusion Matrix')
+plt.show()
