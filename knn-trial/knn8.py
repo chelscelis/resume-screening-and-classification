@@ -6,14 +6,15 @@ import re
 import seaborn as sns
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, hstack
 from sklearn import metrics
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.neighbors import KNeighborsClassifier, NeighborhoodComponentsAnalysis
 from sklearn.preprocessing import LabelEncoder
 
-file_path = '~/Downloads/2482_edited.csv'
+file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/dataset_hr_edited.csv'
+# file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/Raw_Resume.csv'
 
 resumeDataSet = pd.read_csv(file_path)
 
@@ -50,17 +51,17 @@ requiredTarget = resumeDataSet['Category'].values
 word_vectorizer = TfidfVectorizer(
     stop_words='english',
     sublinear_tf=True,
-    # max_features=1500
+    max_features=18038
 )
 
 word_vectorizer.fit(requiredText)
+joblib.dump(word_vectorizer, 'tfidf_vectorizer.joblib')
 WordFeatures = word_vectorizer.transform(requiredText)
 
 nca = NeighborhoodComponentsAnalysis(n_components=300, random_state=42)
 WordFeatures = nca.fit_transform(WordFeatures.toarray(), requiredTarget)
 nca_filename = f'nca_model.joblib'
 joblib.dump(nca, nca_filename)
-
 
 X_train,X_test,y_train,y_test = train_test_split(WordFeatures,requiredTarget,random_state=42, test_size=0.2,shuffle=True, stratify=requiredTarget)
 print(X_train.shape)
