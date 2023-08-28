@@ -1,27 +1,27 @@
 import joblib
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import warnings
-warnings.filterwarnings('ignore')
-from sklearn.multiclass import OneVsRestClassifier
-from sklearn import metrics
-from sklearn.neighbors import KNeighborsClassifier, NeighborhoodComponentsAnalysis
-from sklearn.feature_extraction.text import TfidfVectorizer
+import re
+import seaborn as sns
 from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer, PorterStemmer
+from nltk.stem import PorterStemmer
+from scipy.sparse import csr_matrix
+from sklearn import metrics
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.neighbors import KNeighborsClassifier, NeighborhoodComponentsAnalysis
+from sklearn.preprocessing import LabelEncoder
 
-# file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/kaggle-KNN-2482.csv'
 file_path = '~/Downloads/2482_edited.csv'
 
 resumeDataSet = pd.read_csv(file_path)
 
 stop_words = set(stopwords.words('english'))
-lemmatizer = WordNetLemmatizer()
 stemmer = PorterStemmer()
 
 print (resumeDataSet['Category'].value_counts())
 
-import re
 def cleanResume(resumeText):
     resumeText = re.sub('http\S+\s*', ' ', resumeText)  # remove URLs
     resumeText = re.sub('RT|cc', ' ', resumeText)  # remove RT and cc
@@ -37,31 +37,25 @@ def cleanResume(resumeText):
     resumeText = ' '.join(words)
     return resumeText
 
-
 resumeDataSet['cleaned_resume'] = resumeDataSet.Resume.apply(lambda x: cleanResume(x))
 
-from sklearn.preprocessing import LabelEncoder
 le = LabelEncoder()
 resumeDataSet['Category'] = le.fit_transform(resumeDataSet['Category'])
 le_filename = f'label_encoder.joblib'
 joblib.dump(le, le_filename)
-
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.feature_extraction.text import TfidfVectorizer
 
 requiredText = resumeDataSet['cleaned_resume'].values
 requiredTarget = resumeDataSet['Category'].values
 
 word_vectorizer = TfidfVectorizer(
     stop_words='english',
-    sublinear_tf=True,  # Use logarithmic form for frequency
+    sublinear_tf=True,
     # max_features=1500
 )
 
 word_vectorizer.fit(requiredText)
 WordFeatures = word_vectorizer.transform(requiredText)
 
-from scipy.sparse import csr_matrix
 nca = NeighborhoodComponentsAnalysis(n_components=300, random_state=42)
 WordFeatures = nca.fit_transform(WordFeatures.toarray(), requiredTarget)
 nca_filename = f'nca_model.joblib'
@@ -69,7 +63,6 @@ joblib.dump(nca, nca_filename)
 
 
 X_train,X_test,y_train,y_test = train_test_split(WordFeatures,requiredTarget,random_state=42, test_size=0.2,shuffle=True, stratify=requiredTarget)
-# X_train,X_test,y_train,y_test = train_test_split(WordFeatures,requiredTarget,random_state=42, test_size=0.2)
 print(X_train.shape)
 print(X_test.shape)
 
@@ -101,12 +94,8 @@ print('Accuracy of KNeighbors Classifier on training set: {:.2f}'.format(knn.sco
 print('Accuracy of KNeighbors Classifier on test set: {:.2f}'.format(knn.score(X_test, y_test)))
 print("\n Classification report for classifier %s:\n%s\n" % (knn, metrics.classification_report(y_test, prediction)))
 
-import seaborn as sns
-import matplotlib.pyplot as plt
-
 confusion_matrix = metrics.confusion_matrix(y_test, prediction)
 
-# Create a heatmap
 plt.figure(figsize=(10, 10))
 sns.heatmap(confusion_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=le.classes_, yticklabels=le.classes_)
 plt.xlabel('Predicted')
