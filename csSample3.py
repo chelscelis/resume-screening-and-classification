@@ -10,15 +10,13 @@ startTime = time.time()
 job_description = "We are looking for a software engineer with experience in Python and machine learning."
 resumes = [
     "Experienced software engineer with a background in Python and machine learning.",
-    "Frontend developer skilled in HTML, CSS, and JavaScript.",
-    "Data scientist proficient in Python and R, with a focus on machine learning models.",
-    "Software engineer with experience in Python and machine learning.",
-    "Passionate software engineer experienced in developing Python applications and implementing machine learning algorithms.",
-    "Machine learning engineer with a strong Python background and a track record of creating effective ML solutions.",
-    "Experienced Python developer with a specialization in machine learning and a proven ability to deliver high-quality software.",
-    "Software engineer with a keen interest in machine learning and a demonstrated history of developing Python-based applications.",
-    "Results-driven programmer with expertise in Python and machine learning techniques, ready to contribute as a software engineer.",
-    "Experienced software developer proficient in Python and well-versed in machine learning principles.",
+    "Python developer skilled in machine learning algorithms and software engineering best practices.",
+    "Software engineer experienced in Python and machine learning, dedicated to building efficient applications.",
+    "Passionate software engineer with expertise in Python and a strong interest in machine learning advancements.",
+    "Detail-oriented developer with a background in Python and a deep understanding of machine learning techniques.",
+    "Full-stack developer with proficiency in Python and a focus on creating machine learning-powered applications.",
+    "Machine learning engineer with a strong Python background and a track record of developing successful ML solutions.",
+    "Python developer experienced in machine learning model deployment and maintaining reliable software systems.",
 ]
 
 # Download pre-trained Word2Vec word embeddings
