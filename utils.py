@@ -2,12 +2,18 @@ import joblib
 import numpy as np
 import pandas as pd
 import re
+from gensim.models import KeyedVectors
 from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
 from nltk.stem import PorterStemmer
 from scipy.sparse import csr_matrix, hstack
+from sklearn.metrics.pairwise import cosine_similarity
 
 stop_words = set(stopwords.words('english'))
 stemmer = PorterStemmer()
+
+model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/GoogleNews-vectors-negative300.bin'  # Provide the path to the downloaded binary file
+model = KeyedVectors.load_word2vec_format(model_path, binary=True)
 
 def addZeroFeatures(matrix):
     maxFeatures = 18038
@@ -32,10 +38,25 @@ def cleanText(text):
 def convertDfToCsv(df):
     return df.to_csv().encode('utf-8')
 
+def rankResumes(jobDescription, resumes):
+    jobDescriptionEmbedding = getEmbedding(jobDescription)
+    resumeEmbeddings = [getEmbedding(resume) for resume in resumes]
+    cosineSimilarities = [cosine_similarity([jobDescriptionEmbedding], [resumeEmbedding.reshape(1, -1)])[0][0] for resumeEmbedding in resumeEmbeddings]
+    rankedResumes = sorted(zip(resumes, cosineSimilarities), key=lambda x: x[1], reverse=True)
+    return rankedResumes
+
 def dimensionalityReduction(features):
     nca = joblib.load('nca_model.joblib')
     features = nca.transform(features.toarray())
     return features    
+
+def getEmbedding(text):
+    tokens = preprocessText(text)
+    validTokens = [token for token in tokens if token in model]
+    if validTokens:
+        embeddings = model[validTokens]
+        return np.mean(embeddings, axis=0)
+    return None
 
 def loadKnnModel():
     knnModelFileName = f'knn_model.joblib'
@@ -48,3 +69,8 @@ def loadLabelEncoder():
 def loadTfidfVectorizer():
     tfidfVectorizerFileName = f'tfidf_vectorizer.joblib' 
     return joblib.load(tfidfVectorizerFileName)
+
+def preprocessText(text):
+    tokens = word_tokenize(text.lower())
+    tokens = [token for token in tokens if token.isalnum() and token not in stop_words]
+    return tokens

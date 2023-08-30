@@ -1,9 +1,8 @@
-import streamlit as st 
 import pandas as pd
+import streamlit as st 
 import streamlit_ext as ste
 
 from utils import *
-from jobDescriptionVariables import *
 
 st.write("""
 # Resume Screening & Classification
@@ -31,7 +30,7 @@ with tab1:
     - **Access Job Description files [here](https://drive.google.com/drive/folders/1ncCO1Zplo3bj45ko7ZAKtU8RxzLi54od?usp=sharing)**
     - **Access Resume files [here](https://drive.google.com/drive/folders/1U9vFegvztlJXDlGcnaJ9LlrBvS30vAe0?usp=sharing)**
     """)
-    # TODO: add official google drive links
+
     st.info("""
     **Reminder:** It is recommended to save the output before starting another process.
     According to Streamlit's app model, the script is re-executed for every time a user interacts with a widget.
@@ -51,7 +50,6 @@ with tab2:
     if st.button('Start Processing', disabled = isButtonDisabledClf, key = 'process-clf'):
         st.divider()
         st.header('Output')
-        # resumeClf = pd.read_csv(uploadedResumeClf)
         resumeClf = pd.read_excel(uploadedResumeClf)
 
         with st.spinner('Classifying resumes ...'):
@@ -102,14 +100,24 @@ with tab3:
 
         with st.spinner('Ranking resumes ...'):
             jobDescriptionRnk = uploadedJobDescriptionRnk.read().decode('utf-8')
-            # resumeRnk = pd.read_csv(uploadedResumeRnk)
             resumeRnk = pd.read_excel(uploadedResumeRnk)
             # TODO: add ranking logic
+            resumeRnk['Description'].fillna(' ', inplace=True)
+            resumeRnk['Current Position'].fillna(' ', inplace=True)
+            resumeRnk['Experience'].fillna(' ', inplace=True)
+            resumeRnk['Education'].fillna(' ', inplace=True)
+            resumeRnk['Licenses & Certification'].fillna(' ', inplace=True)
+            resumeRnk['Skills'].fillna(' ', inplace=True)
+            resumeRnk['Resume'] = resumeRnk[['Description', 'Current Position', 'Experience', 'Education', 'Licenses & Certification', 'Skills']].apply(" ".join, axis = 1)
+            resumes = resumeRnk['Resume'].tolist()
+            rankedResumes = rankResumes(jobDescriptionRnk, resumes)
+
+            rankedDF = pd.DataFrame(rankedResumes, columns=['Resume', 'Similarity'])
 
         with st.expander('Job Description Content'):
             st.code(jobDescriptionRnk, language = 'None')
-        st.dataframe(resumeRnk)
-        ste.download_button('Download as XLSX', resumeRnk, 'Resumes_ranked.xlsx')
+        st.dataframe(rankedDF)
+        ste.download_button('Download as XLSX', rankedDF, 'Resumes_ranked.xlsx')
         # csv = convertDfToCsv(resumeRnk)
         # st.download_button(
         #     label = "Download as CSV",
