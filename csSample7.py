@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-from gensim.models import KeyedVectors
+from gensim.models import Word2Vec 
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 import nltk
@@ -26,25 +26,16 @@ def preprocess_text(text):
     tokens = [token for token in tokens if token.isalnum() and token not in stop_words]
     return tokens
 
-# Load Google's pretrained Word2Vec model from the binary file
-model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/GoogleNews-vectors-negative300.bin'  # Provide the path to the downloaded binary file
-model = KeyedVectors.load_word2vec_format(model_path, binary=True)
+all_texts = [job_description] + resumes
+all_tokens = [preprocess_text(text) for text in all_texts]
 
-def get_embedding(text):
-    tokens = preprocess_text(text)
-    valid_tokens = [token for token in tokens if token in model]
-    if valid_tokens:
-        embeddings = model[valid_tokens]
-        return np.mean(embeddings, axis=0)
-    return None
+model = Word2Vec(sentences=all_tokens, vector_size=300, window=10, min_count=1, workers=4)
 
-# Calculate cosine similarity
-# job_description_embedding = np.mean([model[word] for word in preprocess_text(job_description) if word in model], axis=0)
-# resume_embeddings = [np.mean([model[word] for word in preprocess_text(resume) if word in model], axis=0) for resume in resumes]
-job_description_embedding = get_embedding(job_description)
-resume_embeddings = [get_embedding(resume) for resume in resumes]
+job_description_embedding = np.mean([model.wv[word] for word in preprocess_text(job_description)], axis=0)
+resume_embeddings = [np.mean([model.wv[word] for word in preprocess_text(resume)], axis=0) for resume in resumes]
 
 cosine_similarities = [cosine_similarity([job_description_embedding], [resume_embedding])[0][0] for resume_embedding in resume_embeddings]
+
 # cosine_similarities = [
 #     cosine_similarity([job_description_embedding], [resume_embedding])[0][0] /
 #     (np.linalg.norm(job_description_embedding) * np.linalg.norm(resume_embedding))

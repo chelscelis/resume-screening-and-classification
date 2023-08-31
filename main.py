@@ -115,7 +115,8 @@ with tab3:
             rankedDF = pd.DataFrame(rankedResumes, columns=['Resume', 'Similarity'])
 
         with st.expander('Job Description Content'):
-            st.code(jobDescriptionRnk, language = 'None')
+            # st.text_area('Job Description',jobDescriptionRnk)
+            st.write(jobDescriptionRnk)
         st.dataframe(rankedDF)
         ste.download_button('Download as XLSX', rankedDF, 'Resumes_ranked.xlsx')
         # csv = convertDfToCsv(resumeRnk)

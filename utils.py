@@ -12,8 +12,12 @@ from sklearn.metrics.pairwise import cosine_similarity
 stop_words = set(stopwords.words('english'))
 stemmer = PorterStemmer()
 
-model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/GoogleNews-vectors-negative300.bin'  # Provide the path to the downloaded binary file
-model = KeyedVectors.load_word2vec_format(model_path, binary=True)
+# model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/wiki-news-300d-1M-subword.vec' # fasttext
+# model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/wiki-news-300d-1M.vec' # fasttext
+model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/GoogleNews-vectors-negative300.bin' # google
+model = KeyedVectors.load_word2vec_format(model_path, binary=True) # for google word2vec
+# model = KeyedVectors.load_word2vec_format(model_path) # for fasttext
+
 
 def addZeroFeatures(matrix):
     maxFeatures = 18038
@@ -41,7 +45,7 @@ def convertDfToCsv(df):
 def rankResumes(jobDescription, resumes):
     jobDescriptionEmbedding = getEmbedding(jobDescription)
     resumeEmbeddings = [getEmbedding(resume) for resume in resumes]
-    cosineSimilarities = [cosine_similarity([jobDescriptionEmbedding], [resumeEmbedding.reshape(1, -1)])[0][0] for resumeEmbedding in resumeEmbeddings]
+    cosineSimilarities = [cosine_similarity([jobDescriptionEmbedding], [resumeEmbedding])[0][0] for resumeEmbedding in resumeEmbeddings]
     rankedResumes = sorted(zip(resumes, cosineSimilarities), key=lambda x: x[1], reverse=True)
     return rankedResumes
 
@@ -56,7 +60,8 @@ def getEmbedding(text):
     if validTokens:
         embeddings = model[validTokens]
         return np.mean(embeddings, axis=0)
-    return None
+    else:
+        return np.zeros(model.vector_size)
 
 def loadKnnModel():
     knnModelFileName = f'knn_model.joblib'
@@ -71,6 +76,10 @@ def loadTfidfVectorizer():
     return joblib.load(tfidfVectorizerFileName)
 
 def preprocessText(text):
+    text = re.sub(r'http\S+\s*|RT|cc|#\S+|@\S+', ' ', text)
+    text = re.sub(r'[^\x00-\x7f]', ' ', text)
+    text = re.sub(r'[{}]'.format(re.escape("""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~""")), ' ', text)
+    text = re.sub(r'\s+', ' ', text).lower()
     tokens = word_tokenize(text.lower())
     tokens = [token for token in tokens if token.isalnum() and token not in stop_words]
     return tokens
