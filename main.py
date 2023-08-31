@@ -2,6 +2,8 @@ import pandas as pd
 import streamlit as st 
 import streamlit_ext as ste
 
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 from utils import *
 
 st.write("""
@@ -20,12 +22,17 @@ with tab1:
     The **Resume Screening & Classification** website application aims to help alleviate the challenges posed by manual resume screening. The objectives are:
     - Classify submitted resumes into their respective job industries
     - Rank resumes based on their similarity to the provided job description
-    ## Demo Testing Guide 
-    For the **Job Description**: Ensure the job description is saved in a .txt format. Clearly outline the skills, qualifications, and responsibilities associated with the position.
 
-    For the **Resumes**: Organize the resumes you wish to evaluate in one column entitled as "Resume" and in a .csv format.    
+    ## Input Guide 
+    For the **Job Description**: Ensure the job description is saved in a .txt format. 
+    Clearly outline the responsibilities, qualifications, and skills associated with the position.
 
-    For your convenience, we have included sample input files for demo testing purposes. You can download the following files to experience the capabilities of the web app:
+    For the **Resumes**: Resumes must be compiled in an excel file and ensure that the following columns are present: "Description", "Profession", "Experience", "Education", "Licenses & Certification", and "Skills."
+
+    For your convenience, we have included sample input files for demo testing purposes. 
+    Fifty-five (55) resumes (5 per category) were collected from LinkedIn with personally identifiable information (PII) removed.
+    Then, eleven (11) job descriptions were created with the help of Workable.
+    You can download the following files to experience the capabilities of the web app:
 
     - **Access Job Description files [here](https://drive.google.com/drive/folders/1ncCO1Zplo3bj45ko7ZAKtU8RxzLi54od?usp=sharing)**
     - **Access Resume files [here](https://drive.google.com/drive/folders/1U9vFegvztlJXDlGcnaJ9LlrBvS30vAe0?usp=sharing)**
@@ -34,7 +41,7 @@ with tab1:
     st.info("""
     **Reminder:** It is recommended to save the output before starting another process.
     According to Streamlit's app model, the script is re-executed for every time a user interacts with a widget.
-    For this web app, interacting with tabs, expanders, and tables do not trigger a rerun (only file uploaders and process buttons).
+    For this web app, interacting with tabs, expanders, and tables do not trigger a re-execution (only file uploaders and process buttons).
 
     For more information, click [here](https://docs.streamlit.io/library/get-started/main-concepts)
     """)
@@ -53,14 +60,8 @@ with tab2:
         resumeClf = pd.read_excel(uploadedResumeClf)
 
         with st.spinner('Classifying resumes ...'):
-            resumeClf['Description'].fillna(' ', inplace=True)
-            resumeClf['Current Position'].fillna(' ', inplace=True)
-            resumeClf['Experience'].fillna(' ', inplace=True)
-            resumeClf['Education'].fillna(' ', inplace=True)
-            resumeClf['Licenses & Certification'].fillna(' ', inplace=True)
-            resumeClf['Skills'].fillna(' ', inplace=True)
-            resumeClf['Resume'] = resumeClf[['Description', 'Current Position', 'Experience', 'Education', 'Licenses & Certification', 'Skills']].apply(" ".join, axis = 1)
-            resumeClf['cleanedResume'] = resumeClf.Resume.apply(lambda x: cleanText(x))
+            resumeClf = combineColumns(resumeClf)
+            resumeClf['cleanedResume'] = resumeClf.Resume.apply(lambda x: preprocessing(x))
             resumeText = resumeClf['cleanedResume'].values
             vectorizer = loadTfidfVectorizer()
             wordFeatures = vectorizer.transform(resumeText)
@@ -72,7 +73,7 @@ with tab2:
             resumeClf['Industry Category'] = le.inverse_transform(predictedCategories)
             del resumeClf['cleanedResume']
 
-        with st.expander('See Bar Chart'):
+        with st.expander('View Bar Chart'):
             st.caption('The chart below shows the total number of resumes per category.')
             st.bar_chart(resumeClf['Industry Category'].value_counts())
         st.dataframe(resumeClf)
@@ -101,24 +102,28 @@ with tab3:
         with st.spinner('Ranking resumes ...'):
             jobDescriptionRnk = uploadedJobDescriptionRnk.read().decode('utf-8')
             resumeRnk = pd.read_excel(uploadedResumeRnk)
-            # TODO: add ranking logic
-            resumeRnk['Description'].fillna(' ', inplace=True)
-            resumeRnk['Current Position'].fillna(' ', inplace=True)
-            resumeRnk['Experience'].fillna(' ', inplace=True)
-            resumeRnk['Education'].fillna(' ', inplace=True)
-            resumeRnk['Licenses & Certification'].fillna(' ', inplace=True)
-            resumeRnk['Skills'].fillna(' ', inplace=True)
-            resumeRnk['Resume'] = resumeRnk[['Description', 'Current Position', 'Experience', 'Education', 'Licenses & Certification', 'Skills']].apply(" ".join, axis = 1)
-            resumes = resumeRnk['Resume'].tolist()
-            rankedResumes = rankResumes(jobDescriptionRnk, resumes)
+            resumeRnk = combineColumns(resumeRnk)
+            resumeRnk['cleanedResume'] = resumeRnk.Resume.apply(lambda x: clean(x))
 
-            rankedDF = pd.DataFrame(rankedResumes, columns=['Resume', 'Similarity'])
+            # resumes = resumeRnk['Resume'].values
+            # rankedResumes = rank_resumes(jobDescriptionRnk, resumes)
+            # resumeRnk = pd.DataFrame(rankedResumes, columns=['Resume', 'Similarity'])
 
-        with st.expander('Job Description Content'):
-            # st.text_area('Job Description',jobDescriptionRnk)
+            tfidf_vectorizer = TfidfVectorizer(stop_words='english')
+            job_tfidf = tfidf_vectorizer.fit_transform([jobDescriptionRnk])
+            resume_similarities = []
+            for resume_content in resumeRnk['cleanedResume']:
+                resume_tfidf = tfidf_vectorizer.transform([resume_content])
+                similarity = cosine_similarity(job_tfidf, resume_tfidf)
+                resume_similarities.append(similarity[0][0])
+            resumeRnk['Similarity'] = resume_similarities
+            resumeRnk = resumeRnk.sort_values(by='Similarity', ascending=False)
+            del resumeRnk['cleanedResume']
+
+        with st.expander('View Job Description'):
             st.write(jobDescriptionRnk)
-        st.dataframe(rankedDF)
-        ste.download_button('Download as XLSX', rankedDF, 'Resumes_ranked.xlsx')
+        st.dataframe(resumeRnk)
+        ste.download_button('Download as XLSX', resumeRnk, 'Resumes_ranked.xlsx')
         # csv = convertDfToCsv(resumeRnk)
         # st.download_button(
         #     label = "Download as CSV",

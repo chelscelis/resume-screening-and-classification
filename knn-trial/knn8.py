@@ -14,6 +14,7 @@ from sklearn.neighbors import KNeighborsClassifier, NeighborhoodComponentsAnalys
 from sklearn.preprocessing import LabelEncoder
 
 file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/dataset_hr_edited.csv'
+# file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/dataset_hr_edited_2.csv'
 # file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/Raw_Resume.csv'
 
 resumeDataSet = pd.read_csv(file_path)
