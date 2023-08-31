@@ -39,7 +39,7 @@ requiredTarget = df['Category'].values
 
 tokenized_resumes = [nltk.word_tokenize(resume.lower()) for resume in requiredText]
 word2vec_model = Word2Vec(tokenized_resumes, vector_size=300, window=10, min_count=1, sg=1, epochs=50)
-
+print(tokenized_resumes)
 WordFeatures = []
 for tokens in tokenized_resumes:
     embeddings = [word2vec_model.wv[word] for word in tokens if word in word2vec_model.wv]
