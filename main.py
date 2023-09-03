@@ -1,11 +1,17 @@
+import altair as alt
 import joblib
 import numpy as np
 import pandas as pd
 import re
 import streamlit as st 
 
+from io import BytesIO
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
+from pandas.api.types import (
+    is_categorical_dtype,
+    is_numeric_dtype,
+)
 from scipy.sparse import csr_matrix, hstack
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -21,29 +27,6 @@ def addZeroFeatures(matrix):
         zeroFeatures = csr_matrix((numDocs, missingFeatures), dtype=np.float64)
         matrix = hstack([matrix, zeroFeatures])
     return matrix
-
-@st.cache_data
-def classifyResumes(resumeClf):
-    resumeClf = combineColumns(resumeClf)
-    resumeClf['cleanedResume'] = resumeClf.Resume.apply(lambda x: preprocessing(x))
-    resumeText = resumeClf['cleanedResume'].values
-    vectorizer = loadTfidfVectorizer()
-    wordFeatures = vectorizer.transform(resumeText)
-    wordFeaturesWithZeros = addZeroFeatures(wordFeatures)
-    finalFeatures = dimensionalityReduction(wordFeaturesWithZeros)
-    knn = loadKnnModel()
-    predictedCategories = knn.predict(finalFeatures)
-    le = loadLabelEncoder()
-    resumeClf['Industry Category'] = le.inverse_transform(predictedCategories)
-    del resumeClf['cleanedResume']
-    return resumeClf
-
-def clean(text):
-    text = re.sub(r'http\S+\s*|RT|cc|#\S+|@\S+', ' ', text)
-    text = re.sub(r'[^\x00-\x7f]', ' ', text)
-    text = re.sub(r'[{}]'.format(re.escape("""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~""")), ' ', text)
-    text = re.sub(r'\s+', ' ', text).lower()
-    return text 
 
 def clickClassify():
     st.session_state.processClf = True
@@ -61,13 +44,79 @@ def combineColumns(df):
     df['Resume'] = df[['Description', 'Profession', 'Experience', 'Education', 'Licenses & Certification', 'Skills']].apply(" ".join, axis = 1)
     return df
 
-def convertDfToCsv(df):
-    return df.to_csv().encode('utf-8')
+def convertDfToXlsx(df):
+    output = BytesIO()
+    writer = pd.ExcelWriter(output, engine='xlsxwriter')
+    df.to_excel(writer, index=False, sheet_name='Sheet1')
+    workbook = writer.book
+    worksheet = writer.sheets['Sheet1']
+    format1 = workbook.add_format({'num_format': '0.00'}) 
+    worksheet.set_column('A:A', None, format1)  
+    writer.close()
+    processed_data = output.getvalue()
+    return processed_data
 
 def dimensionalityReduction(features):
     nca = joblib.load('nca_model.joblib')
     features = nca.transform(features.toarray())
     return features    
+
+def filterDataframeClf(df: pd.DataFrame) -> pd.DataFrame:
+    modify = st.checkbox("Add filters", key = 'checkbox-Clf')
+    if not modify:
+        return df
+    df = df.copy()
+    modificationContainer = st.container()
+    with modificationContainer:
+        toFilterColumns = st.multiselect("Filter table on", df.columns)
+        for column in toFilterColumns:
+            left, right = st.columns((1, 20))
+            left.write("↳")
+            if is_categorical_dtype(df[column]):
+                userCatInput = right.multiselect(
+                    f'Values for {column}',
+                    df[column].unique(),
+                    default = list(df[column].unique()),
+                )
+                df = df[df[column].isin(userCatInput)]
+            else:
+                userTextInput = right.text_input(
+                    f'Substring or regex in {column}',
+                )
+                if userTextInput:
+                    df = df[df[column].astype(str).str.contains(userTextInput)]
+    return df
+
+def filterDataframeRnk(df: pd.DataFrame) -> pd.DataFrame:
+    modify = st.checkbox("Add filters", key = 'checkbox-rnk')
+    if not modify:
+        return df
+    df = df.copy()
+    modificationContainer = st.container()
+    with modificationContainer:
+        toFilterColumns = st.multiselect("Filter table on", df.columns)
+        for column in toFilterColumns:
+            left, right = st.columns((1, 20))
+            left.write("↳")
+            if is_numeric_dtype(df[column]):
+                _min = float(df[column].min())
+                _max = float(df[column].max())
+                step = (_max - _min) / 100
+                userNumInput = right.slider(
+                    f'Values for {column}',
+                    min_value = _min,
+                    max_value = _max,
+                    value = (_min, _max),
+                    step = step,
+                )
+                df = df[df[column].between(*userNumInput)]
+            else:
+                userTextInput = right.text_input(
+                    f'Substring or regex in {column}',
+                )
+                if userTextInput:
+                    df = df[df[column].astype(str).str.contains(userTextInput)]
+    return df
 
 def loadKnnModel():
     knnModelFileName = f'knn_model.joblib'
@@ -81,30 +130,47 @@ def loadTfidfVectorizer():
     tfidfVectorizerFileName = f'tfidf_vectorizer.joblib' 
     return joblib.load(tfidfVectorizerFileName)
 
-
-def preprocessing(text):
+def preprocessing(text, action):
     text = re.sub(r'http\S+\s*|RT|cc|#\S+|@\S+', ' ', text)
     text = re.sub(r'[^\x00-\x7f]', ' ', text)
     text = re.sub(r'[{}]'.format(re.escape("""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~""")), ' ', text)
     text = re.sub(r'\s+', ' ', text).lower()
     words = text.split()
     words = [word for word in words if word.lower() not in stop_words]
-    words = [stemmer.stem(word.lower()) for word in words if word.lower() not in stop_words]
+    if action == 'classify':
+        words = [stemmer.stem(word.lower()) for word in words if word.lower() not in stop_words]
     text = ' '.join(words)
     return text 
 
 @st.cache_data
-def rankResumes(jobDescriptionRnk, resumeRnk):
+def resumesClassify(resumeClf):
+    resumeClf = combineColumns(resumeClf)
+    resumeClf['cleanedResume'] = resumeClf.Resume.apply(lambda x: preprocessing(x, 'classify'))
+    resumeText = resumeClf['cleanedResume'].values
+    vectorizer = loadTfidfVectorizer()
+    wordFeatures = vectorizer.transform(resumeText)
+    wordFeaturesWithZeros = addZeroFeatures(wordFeatures)
+    finalFeatures = dimensionalityReduction(wordFeaturesWithZeros)
+    knn = loadKnnModel()
+    predictedCategories = knn.predict(finalFeatures)
+    le = loadLabelEncoder()
+    resumeClf['Industry Category'] = le.inverse_transform(predictedCategories)
+    resumeClf['Industry Category'] = pd.Categorical(resumeClf['Industry Category'])
+    del resumeClf['cleanedResume']
+    return resumeClf
+
+@st.cache_data
+def resumesRank(jobDescriptionRnk, resumeRnk):
     resumeRnk = combineColumns(resumeRnk)
-    resumeRnk['cleanedResume'] = resumeRnk.Resume.apply(lambda x: clean(x))
-    tfidf_vectorizer = TfidfVectorizer(stop_words='english')
-    job_tfidf = tfidf_vectorizer.fit_transform([jobDescriptionRnk])
-    resume_similarities = []
-    for resume_content in resumeRnk['cleanedResume']:
-        resume_tfidf = tfidf_vectorizer.transform([resume_content])
-        similarity = cosine_similarity(job_tfidf, resume_tfidf)
-        resume_similarities.append(similarity[0][0])
-    resumeRnk['Similarity'] = resume_similarities
+    resumeRnk['cleanedResume'] = resumeRnk.Resume.apply(lambda x: preprocessing(x, 'rank'))
+    tfidfVectorizer = TfidfVectorizer(stop_words='english')
+    jobTfidf = tfidfVectorizer.fit_transform([jobDescriptionRnk])
+    resumeSimilarities = []
+    for resumeContent in resumeRnk['cleanedResume']:
+        resumeTfidf = tfidfVectorizer.transform([resumeContent])
+        similarity = cosine_similarity(jobTfidf, resumeTfidf)
+        resumeSimilarities.append(similarity[0][0])
+    resumeRnk['Similarity'] = resumeSimilarities
     resumeRnk = resumeRnk.sort_values(by='Similarity', ascending=False)
     del resumeRnk['cleanedResume']
     return resumeRnk
@@ -137,9 +203,12 @@ with tab1:
     Then, eleven (11) job descriptions were created with the help of Workable.
     You can download the following files to experience the capabilities of the web app:
 
-    - **Access Job Description files [here](https://drive.google.com/drive/folders/1ncCO1Zplo3bj45ko7ZAKtU8RxzLi54od?usp=sharing)**
-    - **Access Resume files [here](https://drive.google.com/drive/folders/1U9vFegvztlJXDlGcnaJ9LlrBvS30vAe0?usp=sharing)**
+    - **Access Job Description files [here]()**
+    - **Access Resume files [here]()**
     """)
+    # TODO: remove combine function, format samples to have 'Resume' column before processing
+    # TODO: add file links
+    # TODO: add web app walkthrough
 
 with tab2:
     st.header('Input')
@@ -160,18 +229,27 @@ with tab2:
         st.divider()
         st.header('Output')
         resumeClf = pd.read_excel(uploadedResumeClf)
-        resumeClf = classifyResumes(resumeClf)
+        resumeClf = resumesClassify(resumeClf)
         with st.expander('View Bar Chart'):
-            st.caption('The chart below shows the total number of resumes per category.')
-            st.bar_chart(resumeClf['Industry Category'].value_counts())
-        st.dataframe(resumeClf)
-        csv = convertDfToCsv(resumeClf)
-        st.download_button(
-            label = "Download as CSV",
-            data = csv,
-            file_name = "Resumes_categorized.csv",
-            mime = 'text/csv',
-        )
+            value_counts = resumeClf['Industry Category'].value_counts().reset_index()
+            value_counts.columns = ['Industry Category', 'Count']
+            new_dataframe = pd.DataFrame(value_counts)
+            barChart = alt.Chart(new_dataframe,
+            ).mark_bar(
+                color = '#56B6C2',
+                size = 13 
+            ).encode(
+                x = alt.X('Count:Q', axis = alt.Axis(format = 'd'), title = 'Number of Resumes'),
+                y = 'Industry Category:N',
+                tooltip = ['Industry Category', 'Count']
+            ).properties(
+                title = 'Number of Resumes per Category',
+            )
+            st.altair_chart(barChart, use_container_width = True)
+        currentClf = filterDataframeClf(resumeClf)
+        st.dataframe(currentClf)
+        xlsxClf = convertDfToXlsx(currentClf)
+        st.download_button(label='Save Current Output as XLSX', data=xlsxClf, file_name='Resumes_categorized.xlsx')
 
 with tab3:
     st.header('Input')
@@ -194,15 +272,11 @@ with tab3:
         st.header('Output')
         jobDescriptionRnk = uploadedJobDescriptionRnk.read().decode('utf-8')
         resumeRnk = pd.read_excel(uploadedResumeRnk)
-        resumeRnk = rankResumes(jobDescriptionRnk, resumeRnk)
+        resumeRnk = resumesRank(jobDescriptionRnk, resumeRnk)
         with st.expander('View Job Description'):
             st.write(jobDescriptionRnk)
-        st.dataframe(resumeRnk)
-        csv = convertDfToCsv(resumeRnk)
-        st.download_button(
-            label = "Download as CSV",
-            data = csv,
-            file_name = "Resumes_ranked_categorized.csv",
-            mime = 'text/csv',
-        ) 
+        currentRnk = filterDataframeRnk(resumeRnk)
+        st.dataframe(currentRnk)
+        xlsxRnk = convertDfToXlsx(currentRnk)
+        st.download_button(label='Save Current Output as XLSX', data=xlsxRnk, file_name='Resumes_ranked.xlsx')
 

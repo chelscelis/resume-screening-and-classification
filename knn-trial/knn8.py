@@ -59,7 +59,7 @@ word_vectorizer = TfidfVectorizer(
 )
 
 word_vectorizer.fit(requiredText)
-joblib.dump(word_vectorizer, 'tfid_vectorizer.joblib')
+joblib.dump(word_vectorizer, 'tfidf_vectorizer.joblib')
 WordFeatures = word_vectorizer.transform(requiredText)
 
 nca = NeighborhoodComponentsAnalysis(n_components=300, random_state=42)
