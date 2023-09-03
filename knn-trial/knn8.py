@@ -16,6 +16,7 @@ from sklearn.preprocessing import LabelEncoder
 file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/dataset_hr_edited.csv'
 # file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/dataset_hr_edited_2.csv'
 # file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/Raw_Resume.csv'
+# file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/kaggle-KNN-2482.csv'
 
 resumeDataSet = pd.read_csv(file_path)
 
@@ -41,10 +42,12 @@ def cleanResume(resumeText):
 
 resumeDataSet['cleaned_resume'] = resumeDataSet.Resume.apply(lambda x: cleanResume(x))
 
+resumeDataSet['copy'] = resumeDataSet['Category'].copy()
 le = LabelEncoder()
 resumeDataSet['Category'] = le.fit_transform(resumeDataSet['Category'])
 le_filename = f'label_encoder.joblib'
 joblib.dump(le, le_filename)
+print(resumeDataSet['copy'].value_counts())
 
 requiredText = resumeDataSet['cleaned_resume'].values
 requiredTarget = resumeDataSet['Category'].values
@@ -56,7 +59,7 @@ word_vectorizer = TfidfVectorizer(
 )
 
 word_vectorizer.fit(requiredText)
-joblib.dump(word_vectorizer, 'tfidf_vectorizer.joblib')
+joblib.dump(word_vectorizer, 'tfid_vectorizer.joblib')
 WordFeatures = word_vectorizer.transform(requiredText)
 
 nca = NeighborhoodComponentsAnalysis(n_components=300, random_state=42)
@@ -89,7 +92,7 @@ knn = KNeighborsClassifier(n_neighbors=1,
 knn.fit(X_train, y_train)
 
 knnModel_filename = f'knn_model.joblib'
-joblib.dump(knn, knnModel_filename)
+# joblib.dump(knn, knnModel_filename)
 
 prediction = knn.predict(X_test)
 print('Accuracy of KNeighbors Classifier on training set: {:.2f}'.format(knn.score(X_train, y_train)))
