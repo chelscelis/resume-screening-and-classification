@@ -34,16 +34,6 @@ def clickClassify():
 def clickRank():
     st.session_state.processRank = True
 
-def combineColumns(df):
-    df['Description'].fillna(' ', inplace=True)
-    df['Profession'].fillna(' ', inplace=True)
-    df['Experience'].fillna(' ', inplace=True)
-    df['Education'].fillna(' ', inplace=True)
-    df['Licenses & Certification'].fillna(' ', inplace=True)
-    df['Skills'].fillna(' ', inplace=True)
-    df['Resume'] = df[['Description', 'Profession', 'Experience', 'Education', 'Licenses & Certification', 'Skills']].apply(" ".join, axis = 1)
-    return df
-
 def convertDfToXlsx(df):
     output = BytesIO()
     writer = pd.ExcelWriter(output, engine='xlsxwriter')
@@ -62,7 +52,7 @@ def dimensionalityReduction(features):
     return features    
 
 def filterDataframeClf(df: pd.DataFrame) -> pd.DataFrame:
-    modify = st.checkbox("Add filters", key = 'checkbox-Clf')
+    modify = st.toggle("Add filters", key = 'toggle-Clf')
     if not modify:
         return df
     df = df.copy()
@@ -88,7 +78,7 @@ def filterDataframeClf(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 def filterDataframeRnk(df: pd.DataFrame) -> pd.DataFrame:
-    modify = st.checkbox("Add filters", key = 'checkbox-rnk')
+    modify = st.toggle("Add filters", key = 'toggle-rnk')
     if not modify:
         return df
     df = df.copy()
@@ -130,22 +120,23 @@ def loadTfidfVectorizer():
     tfidfVectorizerFileName = f'tfidf_vectorizer.joblib' 
     return joblib.load(tfidfVectorizerFileName)
 
-def preprocessing(text, action):
-    text = re.sub(r'http\S+\s*|RT|cc|#\S+|@\S+', ' ', text)
-    text = re.sub(r'[^\x00-\x7f]', ' ', text)
-    text = re.sub(r'[{}]'.format(re.escape("""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~""")), ' ', text)
-    text = re.sub(r'\s+', ' ', text).lower()
+def preprocessing(text):
+    text = re.sub('http\S+\s*', ' ', text)
+    text = re.sub('RT|cc', ' ', text)
+    text = re.sub('#\S+', '', text)
+    text = re.sub('@\S+', '  ', text)
+    text = re.sub('[%s]' % re.escape("""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""), ' ', text)
+    text = re.sub(r'[^\x00-\x7f]',r' ', text)
+    text = re.sub('\s+', ' ', text)
     words = text.split()
     words = [word for word in words if word.lower() not in stop_words]
-    if action == 'classify':
-        words = [stemmer.stem(word.lower()) for word in words if word.lower() not in stop_words]
+    words = [stemmer.stem(word.lower()) for word in words if word.lower() not in stop_words]
     text = ' '.join(words)
     return text 
 
 @st.cache_data
 def resumesClassify(resumeClf):
-    resumeClf = combineColumns(resumeClf)
-    resumeClf['cleanedResume'] = resumeClf.Resume.apply(lambda x: preprocessing(x, 'classify'))
+    resumeClf['cleanedResume'] = resumeClf.Resume.apply(lambda x: preprocessing(x))
     resumeText = resumeClf['cleanedResume'].values
     vectorizer = loadTfidfVectorizer()
     wordFeatures = vectorizer.transform(resumeText)
@@ -161,17 +152,18 @@ def resumesClassify(resumeClf):
 
 @st.cache_data
 def resumesRank(jobDescriptionRnk, resumeRnk):
-    resumeRnk = combineColumns(resumeRnk)
-    resumeRnk['cleanedResume'] = resumeRnk.Resume.apply(lambda x: preprocessing(x, 'rank'))
+    jobDescriptionRnk = preprocessing(jobDescriptionRnk)
+    resumeRnk['cleanedResume'] = resumeRnk.Resume.apply(lambda x: preprocessing(x))
     tfidfVectorizer = TfidfVectorizer(stop_words='english')
     jobTfidf = tfidfVectorizer.fit_transform([jobDescriptionRnk])
     resumeSimilarities = []
     for resumeContent in resumeRnk['cleanedResume']:
         resumeTfidf = tfidfVectorizer.transform([resumeContent])
         similarity = cosine_similarity(jobTfidf, resumeTfidf)
-        resumeSimilarities.append(similarity[0][0])
-    resumeRnk['Similarity'] = resumeSimilarities
-    resumeRnk = resumeRnk.sort_values(by='Similarity', ascending=False)
+        percentageSimilarity = (similarity[0][0] * 100)
+        resumeSimilarities.append(percentageSimilarity)
+    resumeRnk['Similarity Score (%)'] = resumeSimilarities
+    resumeRnk = resumeRnk.sort_values(by='Similarity Score (%)', ascending=False)
     del resumeRnk['cleanedResume']
     return resumeRnk
 
@@ -206,7 +198,6 @@ with tab1:
     - **Access Job Description files [here]()**
     - **Access Resume files [here]()**
     """)
-    # TODO: remove combine function, format samples to have 'Resume' column before processing
     # TODO: add file links
     # TODO: add web app walkthrough
 
@@ -223,7 +214,7 @@ with tab2:
     if 'processClf' not in st.session_state:
         st.session_state.processClf = False
 
-    st.button('Start Processing', on_click=clickClassify, disabled = isButtonDisabledClf, key = 'process-clf')
+    st.button('Start Processing', on_click = clickClassify, disabled = isButtonDisabledClf, key = 'process-clf')
 
     if st.session_state.processClf:
         st.divider()
@@ -240,16 +231,16 @@ with tab2:
                 size = 13 
             ).encode(
                 x = alt.X('Count:Q', axis = alt.Axis(format = 'd'), title = 'Number of Resumes'),
-                y = 'Industry Category:N',
+                y = alt.Y('Industry Category:N', title = 'Category'),
                 tooltip = ['Industry Category', 'Count']
             ).properties(
                 title = 'Number of Resumes per Category',
             )
             st.altair_chart(barChart, use_container_width = True)
         currentClf = filterDataframeClf(resumeClf)
-        st.dataframe(currentClf)
+        st.dataframe(currentClf, use_container_width = True, hide_index = True)
         xlsxClf = convertDfToXlsx(currentClf)
-        st.download_button(label='Save Current Output as XLSX', data=xlsxClf, file_name='Resumes_categorized.xlsx')
+        st.download_button(label='Save Current Output as XLSX', data = xlsxClf, file_name = 'Resumes_categorized.xlsx')
 
 with tab3:
     st.header('Input')
@@ -276,7 +267,7 @@ with tab3:
         with st.expander('View Job Description'):
             st.write(jobDescriptionRnk)
         currentRnk = filterDataframeRnk(resumeRnk)
-        st.dataframe(currentRnk)
+        st.dataframe(currentRnk, use_container_width = True, hide_index = True)
         xlsxRnk = convertDfToXlsx(currentRnk)
-        st.download_button(label='Save Current Output as XLSX', data=xlsxRnk, file_name='Resumes_ranked.xlsx')
+        st.download_button(label='Save Current Output as XLSX', data = xlsxRnk, file_name = 'Resumes_ranked.xlsx')
 
