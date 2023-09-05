@@ -1,171 +1,7 @@
-import altair as alt
-import joblib
-import numpy as np
 import pandas as pd
-import re
 import streamlit as st 
 
-from io import BytesIO
-from nltk.corpus import stopwords
-from nltk.stem import PorterStemmer
-from pandas.api.types import (
-    is_categorical_dtype,
-    is_numeric_dtype,
-)
-from scipy.sparse import csr_matrix, hstack
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-
-stop_words = set(stopwords.words('english'))
-stemmer = PorterStemmer()
-
-def addZeroFeatures(matrix):
-    maxFeatures = 18038
-    numDocs, numTerms = matrix.shape
-    missingFeatures = maxFeatures - numTerms
-    if missingFeatures > 0:
-        zeroFeatures = csr_matrix((numDocs, missingFeatures), dtype=np.float64)
-        matrix = hstack([matrix, zeroFeatures])
-    return matrix
-
-def clickClassify():
-    st.session_state.processClf = True
-
-def clickRank():
-    st.session_state.processRank = True
-
-def convertDfToXlsx(df):
-    output = BytesIO()
-    writer = pd.ExcelWriter(output, engine='xlsxwriter')
-    df.to_excel(writer, index=False, sheet_name='Sheet1')
-    workbook = writer.book
-    worksheet = writer.sheets['Sheet1']
-    format1 = workbook.add_format({'num_format': '0.00'}) 
-    worksheet.set_column('A:A', None, format1)  
-    writer.close()
-    processed_data = output.getvalue()
-    return processed_data
-
-def dimensionalityReduction(features):
-    nca = joblib.load('nca_model.joblib')
-    features = nca.transform(features.toarray())
-    return features    
-
-def filterDataframeClf(df: pd.DataFrame) -> pd.DataFrame:
-    modify = st.toggle("Add filters", key = 'toggle-Clf')
-    if not modify:
-        return df
-    df = df.copy()
-    modificationContainer = st.container()
-    with modificationContainer:
-        toFilterColumns = st.multiselect("Filter table on", df.columns)
-        for column in toFilterColumns:
-            left, right = st.columns((1, 20))
-            left.write("↳")
-            if is_categorical_dtype(df[column]):
-                userCatInput = right.multiselect(
-                    f'Values for {column}',
-                    df[column].unique(),
-                    default = list(df[column].unique()),
-                )
-                df = df[df[column].isin(userCatInput)]
-            else:
-                userTextInput = right.text_input(
-                    f'Substring or regex in {column}',
-                )
-                if userTextInput:
-                    df = df[df[column].astype(str).str.contains(userTextInput)]
-    return df
-
-def filterDataframeRnk(df: pd.DataFrame) -> pd.DataFrame:
-    modify = st.toggle("Add filters", key = 'toggle-rnk')
-    if not modify:
-        return df
-    df = df.copy()
-    modificationContainer = st.container()
-    with modificationContainer:
-        toFilterColumns = st.multiselect("Filter table on", df.columns)
-        for column in toFilterColumns:
-            left, right = st.columns((1, 20))
-            left.write("↳")
-            if is_numeric_dtype(df[column]):
-                _min = float(df[column].min())
-                _max = float(df[column].max())
-                step = (_max - _min) / 100
-                userNumInput = right.slider(
-                    f'Values for {column}',
-                    min_value = _min,
-                    max_value = _max,
-                    value = (_min, _max),
-                    step = step,
-                )
-                df = df[df[column].between(*userNumInput)]
-            else:
-                userTextInput = right.text_input(
-                    f'Substring or regex in {column}',
-                )
-                if userTextInput:
-                    df = df[df[column].astype(str).str.contains(userTextInput)]
-    return df
-
-def loadKnnModel():
-    knnModelFileName = f'knn_model.joblib'
-    return joblib.load(knnModelFileName)
-
-def loadLabelEncoder():
-    labelEncoderFileName = f'label_encoder.joblib'
-    return joblib.load(labelEncoderFileName)
-
-def loadTfidfVectorizer():
-    tfidfVectorizerFileName = f'tfidf_vectorizer.joblib' 
-    return joblib.load(tfidfVectorizerFileName)
-
-def preprocessing(text):
-    text = re.sub('http\S+\s*', ' ', text)
-    text = re.sub('RT|cc', ' ', text)
-    text = re.sub('#\S+', '', text)
-    text = re.sub('@\S+', '  ', text)
-    text = re.sub('[%s]' % re.escape("""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""), ' ', text)
-    text = re.sub(r'[^\x00-\x7f]',r' ', text)
-    text = re.sub('\s+', ' ', text)
-    words = text.split()
-    words = [word for word in words if word.lower() not in stop_words]
-    words = [stemmer.stem(word.lower()) for word in words if word.lower() not in stop_words]
-    text = ' '.join(words)
-    return text 
-
-@st.cache_data
-def resumesClassify(resumeClf):
-    resumeClf['cleanedResume'] = resumeClf.Resume.apply(lambda x: preprocessing(x))
-    resumeText = resumeClf['cleanedResume'].values
-    vectorizer = loadTfidfVectorizer()
-    wordFeatures = vectorizer.transform(resumeText)
-    wordFeaturesWithZeros = addZeroFeatures(wordFeatures)
-    finalFeatures = dimensionalityReduction(wordFeaturesWithZeros)
-    knn = loadKnnModel()
-    predictedCategories = knn.predict(finalFeatures)
-    le = loadLabelEncoder()
-    resumeClf['Industry Category'] = le.inverse_transform(predictedCategories)
-    resumeClf['Industry Category'] = pd.Categorical(resumeClf['Industry Category'])
-    del resumeClf['cleanedResume']
-    return resumeClf
-
-@st.cache_data
-def resumesRank(jobDescriptionRnk, resumeRnk):
-    jobDescriptionRnk = preprocessing(jobDescriptionRnk)
-    resumeRnk['cleanedResume'] = resumeRnk.Resume.apply(lambda x: preprocessing(x))
-    tfidfVectorizer = TfidfVectorizer(stop_words='english')
-    jobTfidf = tfidfVectorizer.fit_transform([jobDescriptionRnk])
-    resumeSimilarities = []
-    for resumeContent in resumeRnk['cleanedResume']:
-        resumeTfidf = tfidfVectorizer.transform([resumeContent])
-        similarity = cosine_similarity(jobTfidf, resumeTfidf)
-        percentageSimilarity = (similarity[0][0] * 100)
-        resumeSimilarities.append(percentageSimilarity)
-    resumeRnk['Similarity Score (%)'] = resumeSimilarities
-    resumeRnk = resumeRnk.sort_values(by='Similarity Score (%)', ascending=False)
-    del resumeRnk['cleanedResume']
-    return resumeRnk
+from utils import *
 
 st.write("""
 # Resume Screening & Classification
@@ -178,25 +14,39 @@ tab1, tab2, tab3 = st.tabs(['Getting Started', 'Classify', 'Rank'])
 with tab1:
     st.write("""
     ## Hello, Welcome!  
-    In today's competitive job market, the process of manually screening resumes has become a daunting task for recruiters and hiring managers. The sheer volume of applications received for a single job posting can make it extremely time-consuming to identify the most suitable candidates efficiently. This often leads to missed opportunities and the potential loss of top-tier talent.
+    In today's competitive job market, the process of manually screening resumes has become a daunting task for recruiters and hiring managers. 
+    The sheer volume of applications received for a single job posting can make it extremely time-consuming to identify the most suitable candidates efficiently. 
+    This often leads to missed opportunities and the potential loss of top-tier talent.
 
-    The **Resume Screening & Classification** website application aims to help alleviate the challenges posed by manual resume screening. The objectives are:
-    - Classify submitted resumes into their respective job industries
-    - Rank resumes based on their similarity to the provided job description
+    The ***Resume Screening & Classification*** website application aims to help alleviate the challenges posed by manual resume screening. The objectives are:
+    - To classify the resumes into their most suitable job industry category
+    - To compare the resumes to the job description and rank them by similarity
 
     ## Input Guide 
-    For the **Job Description**: Ensure the job description is saved in a .txt format. 
+    ##### For the Job Description: 
+    Ensure the job description is saved in a text (.txt) file. 
     Clearly outline the responsibilities, qualifications, and skills associated with the position.
 
-    For the **Resumes**: Resumes must be compiled in an excel file and ensure that the following columns are present: "Description", "Profession", "Experience", "Education", "Licenses & Certification", and "Skills."
-
-    For your convenience, we have included sample input files for demo testing purposes. 
-    Fifty-five (55) resumes (5 per category) were collected from LinkedIn with personally identifiable information (PII) removed.
-    Then, eleven (11) job descriptions were created with the help of Workable.
+    ##### For the Resumes: 
+    Resumes must be compiled in an excel (.xlsx) file. 
+    The organization of columns is up to you but ensure that the "Resume" column is present.
+    The values under this column should include all the relevant details of the resume.
+    You may refer to the sample format below.
+    """)
+    with st.expander('View sample format'):
+        st.write('# Hello world')
+    st.write("""
+    ##### Demo Files: 
+    We have included input files for demo testing purposes. 
+    Fifty-five resumes (five resumes per category) were collected from LinkedIn with personally identifiable information (PII) removed.
+    Then, eleven job descriptions were collected from Indeed and Glassdoor.
     You can download the following files to experience the capabilities of the web app:
 
     - **Access Job Description files [here]()**
     - **Access Resume files [here]()**
+
+    ## Demo Walkthrough
+
     """)
     # TODO: add file links
     # TODO: add web app walkthrough
@@ -222,20 +72,7 @@ with tab2:
         resumeClf = pd.read_excel(uploadedResumeClf)
         resumeClf = resumesClassify(resumeClf)
         with st.expander('View Bar Chart'):
-            value_counts = resumeClf['Industry Category'].value_counts().reset_index()
-            value_counts.columns = ['Industry Category', 'Count']
-            new_dataframe = pd.DataFrame(value_counts)
-            barChart = alt.Chart(new_dataframe,
-            ).mark_bar(
-                color = '#56B6C2',
-                size = 13 
-            ).encode(
-                x = alt.X('Count:Q', axis = alt.Axis(format = 'd'), title = 'Number of Resumes'),
-                y = alt.Y('Industry Category:N', title = 'Category'),
-                tooltip = ['Industry Category', 'Count']
-            ).properties(
-                title = 'Number of Resumes per Category',
-            )
+            barChart = createBarChart(resumeClf)
             st.altair_chart(barChart, use_container_width = True)
         currentClf = filterDataframeClf(resumeClf)
         st.dataframe(currentClf, use_container_width = True, hide_index = True)
