@@ -192,22 +192,118 @@ def resumesClassify(resumeClf):
     del resumeClf['cleanedResume']
     return resumeClf
 
+def preprocessing2(text):
+    text = re.sub('http\S+\s*', ' ', text)
+    text = re.sub('RT|cc', ' ', text)
+    text = re.sub('#\S+', '', text)
+    text = re.sub('@\S+', '  ', text)
+    text = re.sub('[%s]' % re.escape("""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""), ' ', text)
+    text = re.sub(r'[^\x00-\x7f]',r' ', text)
+    text = re.sub('\s+', ' ', text)
+    words = text.split()
+    words = [word.lower() for word in words if word.lower() not in stop_words]
+    text = ' '.join(words)
+    return text 
+
+@st.cache_data
+def tfidf_vectorize(texts):
+    tfidf_vectorizer = TfidfVectorizer()
+    tfidf_matrix = tfidf_vectorizer.fit_transform(texts)
+    return tfidf_matrix, tfidf_vectorizer
+
+from gensim.models import KeyedVectors
+@st.cache_data
+def loadModel():
+    model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/wiki-news-300d-1M.vec'
+    model = KeyedVectors.load_word2vec_format(model_path)
+    return model
+
+word2vec_model = loadModel()
+
 @st.cache_data
 def resumesRank(jobDescriptionRnk, resumeRnk):
-    jobDescriptionRnk = preprocessing(jobDescriptionRnk)
-    resumeRnk['cleanedResume'] = resumeRnk.Resume.apply(lambda x: preprocessing(x))
-    tfidfVectorizer = TfidfVectorizer(stop_words='english')
-    jobTfidf = tfidfVectorizer.fit_transform([jobDescriptionRnk])
+    job_description_text = preprocessing2(jobDescriptionRnk)
+    tfidf_vectorizer = TfidfVectorizer()
+    tfidf_matrix_job = tfidf_vectorizer.fit_transform([job_description_text])
+    resumeRnk['cleanedResume'] = resumeRnk['Resume'].apply(lambda x: preprocessing2(x)).tolist()
+    cleaned_resumes = resumeRnk['cleanedResume'].tolist()
+    all_texts = [job_description_text] + cleaned_resumes
+    tfidf_matrix, tfidf_vectorizer = tfidf_vectorize(all_texts)
+    
+    def get_word_embedding(text):
+        words = text.split()
+        valid_words = [word for word in text.split() if word in word2vec_model]
+        if valid_words:
+            return np.mean([word2vec_model[word] for word in valid_words], axis=0)
+        else:
+            return np.zeros(word2vec_model.vector_size)
+
+    jobDescriptionEmbedding = get_word_embedding(job_description_text)
     resumeSimilarities = []
+
     for resumeContent in resumeRnk['cleanedResume']:
-        resumeTfidf = tfidfVectorizer.transform([resumeContent])
-        similarity = cosine_similarity(jobTfidf, resumeTfidf)
-        percentageSimilarity = (similarity[0][0] * 100)
+        resumeEmbedding = get_word_embedding(resumeContent)
+        tfidf_embedding_similarity = cosine_similarity(
+            tfidf_vectorizer.transform([job_description_text]),
+            tfidf_vectorizer.transform([resumeContent])
+        )[0][0]
+        word_embedding_similarity = cosine_similarity(
+            [jobDescriptionEmbedding], [resumeEmbedding]
+        )[0][0]
+        combined_similarity = (0.6 * tfidf_embedding_similarity) + (0.4 * word_embedding_similarity)
+        percentageSimilarity = combined_similarity * 100
         resumeSimilarities.append(percentageSimilarity)
+
     resumeRnk['Similarity Score (%)'] = resumeSimilarities
     resumeRnk = resumeRnk.sort_values(by='Similarity Score (%)', ascending=False)
     del resumeRnk['cleanedResume']
     return resumeRnk
+
+# FASTTEXT WORD EMBEDDINGS
+# @st.cache_data
+# def resumesRank(jobDescriptionRnk, resumeRnk):
+#     def get_word_embedding(text):
+#         # Calculate the mean of word embeddings for words in the text
+#         words = text.split()
+#         valid_words = [word for word in text.split() if word in word2vec_model]
+#         if valid_words:
+#             return np.mean([word2vec_model[word] for word in valid_words], axis=0)
+#         else:
+#             return np.zeros(word2vec_model.vector_size)
+#
+#     jobDescriptionEmbedding = get_word_embedding(jobDescriptionRnk)
+#     resumeRnk['cleanedResume'] = resumeRnk.Resume.apply(lambda x: preprocessing2(x))
+#     
+#     # Calculate cosine similarities
+#     resumeSimilarities = []
+#     for resumeContent in resumeRnk['cleanedResume']:
+#         resumeEmbedding = get_word_embedding(resumeContent)
+#         similarity = cosine_similarity([jobDescriptionEmbedding], [resumeEmbedding])[0][0]
+#         percentageSimilarity = similarity * 100
+#         resumeSimilarities.append(percentageSimilarity)
+#     
+#     resumeRnk['Similarity Score (%)'] = resumeSimilarities
+#     resumeRnk = resumeRnk.sort_values(by='Similarity Score (%)', ascending=False)
+#     del resumeRnk['cleanedResume']
+#     return resumeRnk
+
+# TF-IDF + COSINE SIMILARITY
+# @st.cache_data
+# def resumesRank(jobDescriptionRnk, resumeRnk):
+#     jobDescriptionRnk = preprocessing(jobDescriptionRnk)
+#     resumeRnk['cleanedResume'] = resumeRnk.Resume.apply(lambda x: preprocessing(x))
+#     tfidfVectorizer = TfidfVectorizer(stop_words='english')
+#     jobTfidf = tfidfVectorizer.fit_transform([jobDescriptionRnk])
+#     resumeSimilarities = []
+#     for resumeContent in resumeRnk['cleanedResume']:
+#         resumeTfidf = tfidfVectorizer.transform([resumeContent])
+#         similarity = cosine_similarity(jobTfidf, resumeTfidf)
+#         percentageSimilarity = (similarity[0][0] * 100)
+#         resumeSimilarities.append(percentageSimilarity)
+#     resumeRnk['Similarity Score (%)'] = resumeSimilarities
+#     resumeRnk = resumeRnk.sort_values(by='Similarity Score (%)', ascending=False)
+#     del resumeRnk['cleanedResume']
+#     return resumeRnk
 
 def writeGettingStarted():
     st.write("""
@@ -235,16 +331,6 @@ def writeGettingStarted():
     """)
     with st.expander('View sample format'):
         st.write('# Hello world')
-    st.write("""
-    #### Demo Files: 
-    We have included input files for demo testing purposes. 
-    Fifty-five resumes (five resumes per category) were collected from LinkedIn with personally identifiable information (PII) removed.
-    Then, eleven job descriptions were collected from Indeed and Glassdoor.
-    You can download the following files to experience the capabilities of the web app:
-
-    - **Access Job Description files [here]()**
-    - **Access Resume files [here]()**
-    """)
     st.divider()
     st.write("""
     ## Demo Walkthrough

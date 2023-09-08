@@ -3,6 +3,19 @@ import streamlit as st
 
 from utils import *
 
+backgroundPattern = """
+<style>
+[data-testid="stAppViewContainer"] {
+    background-color: #0E1117;
+    opacity: 1;
+    background-image: radial-gradient(#282C34 0.75px, #0E1117 0.75px);
+    background-size: 15px 15px;
+}
+</style>
+"""
+
+st.markdown(backgroundPattern, unsafe_allow_html=True)
+
 st.write("""
 # Resume Screening & Classification
 """)
