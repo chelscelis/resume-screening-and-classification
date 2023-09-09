@@ -42,12 +42,10 @@ def cleanResume(resumeText):
 
 resumeDataSet['cleaned_resume'] = resumeDataSet.Resume.apply(lambda x: cleanResume(x))
 
-resumeDataSet['copy'] = resumeDataSet['Category'].copy()
 le = LabelEncoder()
 resumeDataSet['Category'] = le.fit_transform(resumeDataSet['Category'])
 le_filename = f'label_encoder.joblib'
 joblib.dump(le, le_filename)
-print(resumeDataSet['copy'].value_counts())
 
 requiredText = resumeDataSet['cleaned_resume'].values
 requiredTarget = resumeDataSet['Category'].values
