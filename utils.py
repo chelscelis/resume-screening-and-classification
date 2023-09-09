@@ -220,6 +220,7 @@ def loadModel():
 
 word2vec_model = loadModel()
 
+# TF-IDF + FASTTEXT
 @st.cache_data
 def resumesRank(jobDescriptionRnk, resumeRnk):
     job_description_text = preprocessing2(jobDescriptionRnk)
