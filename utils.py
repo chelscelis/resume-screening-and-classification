@@ -218,34 +218,16 @@ model = loadModel()
 
 @st.cache_data
 def resumesRank(jobDescriptionRnk, resumeRnk):
-    # Preprocess the job description
     job_description_text = preprocessing2(jobDescriptionRnk)
-    
-    # Preprocess and clean the resumes
     resumeRnk['cleanedResume'] = resumeRnk['Resume'].apply(lambda x: preprocessing2(x))
-    
-    # Combine job description and resumes into a single list
     documents = [job_description_text] + resumeRnk['cleanedResume'].tolist()
-    
-    # Create a Gensim Dictionary for the vocabulary
     dictionary = Dictionary(documents)
-    
-    # Convert sentences to Bag of Words (BoW) representations
     document_bow = [dictionary.doc2bow(doc) for doc in documents]
-    
-    # Create a TF-IDF model
     tfidf = TfidfModel(document_bow, dictionary=dictionary)
-    
-    # Transform job description to TF-IDF representation
     job_description_tfidf = tfidf[dictionary.doc2bow(job_description_text)]
-    
-    # Create a Word Embedding Similarity Index
-    termsim_index = WordEmbeddingSimilarityIndex(model)  # Use the loaded model directly
-    
-    # Create a Sparse Term Similarity Matrix
+    termsim_index = WordEmbeddingSimilarityIndex(model)
     termsim_matrix = SparseTermSimilarityMatrix(termsim_index, dictionary, tfidf)
     
-    # Calculate the soft cosine similarity between job description and each resume
     similarities = []
     for resume in resumeRnk['cleanedResume']:
         resume_bow = dictionary.doc2bow(resume)
@@ -256,7 +238,6 @@ def resumesRank(jobDescriptionRnk, resumeRnk):
     resumeRnk['Similarity Score (%)'] = similarities
     resumeRnk = resumeRnk.sort_values(by='Similarity Score (%)', ascending=False)
     del resumeRnk['cleanedResume']
-    
     return resumeRnk
 
 # @st.cache_data
