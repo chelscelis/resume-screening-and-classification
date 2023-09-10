@@ -258,18 +258,17 @@ def resumesRank(jobDescriptionRnk, resumeRnk):
     tfidfVectorizer = TfidfVectorizer(stop_words='english')
     jobTfidf = tfidfVectorizer.fit_transform([jobDescriptionRnk])
     jobDescriptionEmbedding = get_word_embedding(jobDescriptionRnk)
-    resumeSimilaritiesFastText = []
-    resumeSimilaritiesTFIDF = []
+    resumeSimilarities = []
     for resumeContent in resumeRnk['cleanedResume']:
         resumeEmbedding = get_word_embedding(resumeContent)
         similarityFastText = cosine_similarity([jobDescriptionEmbedding], [resumeEmbedding])[0][0]
         similarityTFIDF = cosine_similarity(jobTfidf, tfidfVectorizer.transform([resumeContent]))[0][0]
-        final_similarity = (0.5 * similarityTFIDF) + (0.5 * similarityFastText)
-        resumeSimilaritiesFastText.append(final_similarity)
-        resumeSimilaritiesTFIDF.append(similarityTFIDF)
-    resumeRnk['Similarity Score (Final)'] = resumeSimilaritiesFastText
-    resumeRnk = resumeRnk.sort_values(by='Similarity Score (Final)', ascending=False)
-    # del resumeRnk['cleanedResume']
+        similarity = (0.6 * similarityTFIDF) + (0.4 * similarityFastText)
+        final_similarity = similarity * 100
+        resumeSimilarities.append(final_similarity)
+    resumeRnk['Similarity Score (%)'] = resumeSimilarities
+    resumeRnk = resumeRnk.sort_values(by='Similarity Score (%)', ascending=False)
+    del resumeRnk['cleanedResume']
     return resumeRnk
 
 # SOFT COSINE MEASURE 1
