@@ -194,6 +194,7 @@ def resumesClassify(resumeClf):
 
 from nltk.stem import WordNetLemmatizer
 import nltk
+from nltk import pos_tag
 nltk.download('wordnet')
 lemmatizer = WordNetLemmatizer()
 def preprocessing2(text):
@@ -205,10 +206,27 @@ def preprocessing2(text):
     text = re.sub(r'[^\x00-\x7f]',r' ', text)
     text = re.sub('\s+', ' ', text)
     words = text.split()
-    words = [lemmatizer.lemmatize(word.lower()) for word in words if word.lower() not in stop_words]
-    text = ' '.join(words)
+    tagged_words = pos_tag(words)
+    lemmatized_words = []
+    for word, pos in tagged_words:
+        if word.lower() not in stop_words:
+            wordnet_pos = get_wordnet_pos(pos)
+            lemmatized_words.append(lemmatizer.lemmatize(word.lower(), wordnet_pos))
+    text = ' '.join(lemmatized_words)
     return text 
     # return words
+
+def get_wordnet_pos(tag):
+    if tag.startswith('J'):
+        return 'a'  # Adjective
+    elif tag.startswith('N'):
+        return 'n'  # Noun
+    elif tag.startswith('R'):
+        return 'r'  # Adverb
+    elif tag.startswith('V'):
+        return 'v'  # Verb
+    else:
+        return 'n'
 
 import gensim.downloader as api
 from gensim.corpora import Dictionary
@@ -246,7 +264,7 @@ def resumesRank(jobDescriptionRnk, resumeRnk):
         resumeEmbedding = get_word_embedding(resumeContent)
         similarityFastText = cosine_similarity([jobDescriptionEmbedding], [resumeEmbedding])[0][0]
         similarityTFIDF = cosine_similarity(jobTfidf, tfidfVectorizer.transform([resumeContent]))[0][0]
-        final_similarity = (0.7 * similarityTFIDF) + (0.3 * similarityFastText)
+        final_similarity = (0.5 * similarityTFIDF) + (0.5 * similarityFastText)
         resumeSimilaritiesFastText.append(final_similarity)
         resumeSimilaritiesTFIDF.append(similarityTFIDF)
     resumeRnk['Similarity Score (Final)'] = resumeSimilaritiesFastText
@@ -273,52 +291,6 @@ def resumesRank(jobDescriptionRnk, resumeRnk):
 #     resumeRnk['Similarity Score (%)'] = similarities
 #     resumeRnk.sort_values(by='Similarity Score (%)', ascending=False, inplace=True)
 #     resumeRnk.drop(columns=['cleanedResume'], inplace=True)
-#     return resumeRnk
-
-# @st.cache_data
-# def tfidf_vectorize(texts):
-#     tfidf_vectorizer = TfidfVectorizer()
-#     tfidf_matrix = tfidf_vectorizer.fit_transform(texts)
-#     return tfidf_matrix, tfidf_vectorizer
-
-# TF-IDF + FASTTEXT
-# @st.cache_data
-# def resumesRank(jobDescriptionRnk, resumeRnk):
-#     job_description_text = preprocessing(jobDescriptionRnk)
-#     tfidf_vectorizer = TfidfVectorizer()
-#     tfidf_matrix_job = tfidf_vectorizer.fit_transform([job_description_text])
-#     resumeRnk['cleanedResume'] = resumeRnk['Resume'].apply(lambda x: preprocessing(x))
-#     cleaned_resumes = resumeRnk['cleanedResume'].tolist()
-#     all_texts = [job_description_text] + cleaned_resumes
-#     tfidf_matrix, tfidf_vectorizer = tfidf_vectorize(all_texts)
-#     
-#     def get_word_embedding(text):
-#         words = text.split()
-#         valid_words = [word for word in text.split() if word in word2vec_model]
-#         if valid_words:
-#             return np.mean([word2vec_model[word] for word in valid_words], axis=0)
-#         else:
-#             return np.zeros(word2vec_model.vector_size)
-#
-#     jobDescriptionEmbedding = get_word_embedding(job_description_text)
-#     resumeSimilarities = []
-#
-#     for resumeContent in resumeRnk['cleanedResume']:
-#         resumeEmbedding = get_word_embedding(resumeContent)
-#         tfidf_embedding_similarity = cosine_similarity(
-#             tfidf_vectorizer.transform([job_description_text]),
-#             tfidf_vectorizer.transform([resumeContent])
-#         )[0][0]
-#         word_embedding_similarity = cosine_similarity(
-#             [jobDescriptionEmbedding], [resumeEmbedding]
-#         )[0][0]
-#         combined_similarity = (0.7 * tfidf_embedding_similarity) + (0.3 * word_embedding_similarity)
-#         percentageSimilarity = combined_similarity * 100
-#         resumeSimilarities.append(percentageSimilarity)
-#
-#     resumeRnk['Similarity Score (%)'] = resumeSimilarities
-#     resumeRnk = resumeRnk.sort_values(by='Similarity Score (%)', ascending=False)
-#     del resumeRnk['cleanedResume']
 #     return resumeRnk
 
 # FASTTEXT WORD EMBEDDINGS
