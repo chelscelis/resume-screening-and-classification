@@ -244,6 +244,7 @@ def loadModel():
 # model = loadModel()
 word2vec_model = loadModel()
 
+# TF-IDF SCORE + WORD EMBEDDINGS SCORE
 @st.cache_data
 def resumesRank(jobDescriptionRnk, resumeRnk):
     def get_word_embedding(text):
@@ -271,7 +272,7 @@ def resumesRank(jobDescriptionRnk, resumeRnk):
     del resumeRnk['cleanedResume']
     return resumeRnk
 
-# SOFT COSINE MEASURE 1
+# SOFT COSINE MEASURE
 # @st.cache_data
 # def resumesRank(jobDescriptionRnk, resumeRnk):
 #     job_description_text = preprocessing2(jobDescriptionRnk)
@@ -296,25 +297,20 @@ def resumesRank(jobDescriptionRnk, resumeRnk):
 # @st.cache_data
 # def resumesRank(jobDescriptionRnk, resumeRnk):
 #     def get_word_embedding(text):
-#         # Calculate the mean of word embeddings for words in the text
 #         words = text.split()
 #         valid_words = [word for word in text.split() if word in word2vec_model]
 #         if valid_words:
 #             return np.mean([word2vec_model[word] for word in valid_words], axis=0)
 #         else:
 #             return np.zeros(word2vec_model.vector_size)
-#
 #     jobDescriptionEmbedding = get_word_embedding(jobDescriptionRnk)
 #     resumeRnk['cleanedResume'] = resumeRnk.Resume.apply(lambda x: preprocessing2(x))
-#     
-#     # Calculate cosine similarities
 #     resumeSimilarities = []
 #     for resumeContent in resumeRnk['cleanedResume']:
 #         resumeEmbedding = get_word_embedding(resumeContent)
 #         similarity = cosine_similarity([jobDescriptionEmbedding], [resumeEmbedding])[0][0]
 #         percentageSimilarity = similarity * 100
 #         resumeSimilarities.append(percentageSimilarity)
-#     
 #     resumeRnk['Similarity Score (%)'] = resumeSimilarities
 #     resumeRnk = resumeRnk.sort_values(by='Similarity Score (%)', ascending=False)
 #     del resumeRnk['cleanedResume']
