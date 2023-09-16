@@ -212,9 +212,9 @@ def preprocessing2(text):
         if word.lower() not in stop_words:
             wordnet_pos = get_wordnet_pos(pos)
             lemmatized_words.append(lemmatizer.lemmatize(word.lower(), wordnet_pos))
-    text = ' '.join(lemmatized_words)
-    return text 
-    # return words
+    # text = ' '.join(lemmatized_words)
+    # return text 
+    return lemmatized_words # for soft cossim
 
 def get_wordnet_pos(tag):
     if tag.startswith('J'):
@@ -228,81 +228,108 @@ def get_wordnet_pos(tag):
     else:
         return 'n'
 
-import gensim.downloader as api
+from sklearn.decomposition import TruncatedSVD
+import math
+# TF-IDF + LSA + COSSIM
+# @st.cache_data
+# def resumesRank(jobDescriptionRnk, resumeRnk):
+#     jobDescriptionRnk = preprocessing2(jobDescriptionRnk)
+#     resumeRnk['cleanedResume'] = resumeRnk.Resume.apply(lambda x: preprocessing2(x))
+#     resumes = resumeRnk['cleanedResume'].values
+#     # tfidfVectorizer = TfidfVectorizer(sublinear_tf = True, stop_words = 'english')
+#     # tfidfVectorizer = TfidfVectorizer(sublinear_tf = True)
+#     # tfidfVectorizer = TfidfVectorizer(stop_words = 'english')
+#     tfidfVectorizer = TfidfVectorizer()
+#     tfidfMatrix = tfidfVectorizer.fit_transform([jobDescriptionRnk] + list(resumes))
+#     num_features = len(tfidfVectorizer.get_feature_names_out())
+#     st.write(f"Number of TF-IDF Features: {num_features}")
+#     nComponents = math.ceil(len(resumes) * 0.55)
+#     # nComponents = math.ceil(num_features * 0.01)
+#     # nComponents = 29 
+#     st.write(nComponents)
+#     # nComponents = len(resumes)
+#     lsa = TruncatedSVD(n_components=nComponents)
+#     lsaMatrix = lsa.fit_transform(tfidfMatrix)
+#     similarityScores = cosine_similarity(lsaMatrix[0:1], lsaMatrix[1:])
+#     resumeRnk['Similarity Score (%)'] = similarityScores[0] * 100
+#     resumeRnk = resumeRnk.sort_values(by='Similarity Score (%)', ascending=False)
+#     del resumeRnk['cleanedResume']
+#     return resumeRnk
+
 from gensim.corpora import Dictionary
 from gensim.models import TfidfModel
 from gensim.similarities import SparseTermSimilarityMatrix, WordEmbeddingSimilarityIndex
-
 from gensim.models import KeyedVectors
+
 @st.cache_data
 def loadModel():
     model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/wiki-news-300d-1M.vec'
     # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/wiki-news-300d-1M-subword.vec'
     # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/crawl-300d-2M.vec'
-    model = KeyedVectors.load_word2vec_format(model_path)
+    model = KeyedVectors.load_word2vec_format(model_path, limit=200000)
     return model
-# model = loadModel()
-word2vec_model = loadModel()
+model = loadModel()
 
 # TF-IDF SCORE + WORD EMBEDDINGS SCORE
-@st.cache_data
-def resumesRank(jobDescriptionRnk, resumeRnk):
-    def get_word_embedding(text):
-        words = text.split()
-        valid_words = [word for word in text.split() if word in word2vec_model]
-        if valid_words:
-            return np.mean([word2vec_model[word] for word in valid_words], axis=0)
-        else:
-            return np.zeros(word2vec_model.vector_size)
-    jobDescriptionRnk = preprocessing2(jobDescriptionRnk)
-    resumeRnk['cleanedResume'] = resumeRnk.Resume.apply(lambda x: preprocessing2(x))
-    tfidfVectorizer = TfidfVectorizer(stop_words='english')
-    jobTfidf = tfidfVectorizer.fit_transform([jobDescriptionRnk])
-    jobDescriptionEmbedding = get_word_embedding(jobDescriptionRnk)
-    resumeSimilarities = []
-    for resumeContent in resumeRnk['cleanedResume']:
-        resumeEmbedding = get_word_embedding(resumeContent)
-        similarityFastText = cosine_similarity([jobDescriptionEmbedding], [resumeEmbedding])[0][0]
-        similarityTFIDF = cosine_similarity(jobTfidf, tfidfVectorizer.transform([resumeContent]))[0][0]
-        similarity = (0.6 * similarityTFIDF) + (0.4 * similarityFastText)
-        final_similarity = similarity * 100
-        resumeSimilarities.append(final_similarity)
-    resumeRnk['Similarity Score (%)'] = resumeSimilarities
-    resumeRnk = resumeRnk.sort_values(by='Similarity Score (%)', ascending=False)
-    del resumeRnk['cleanedResume']
-    return resumeRnk
-
-# SOFT COSINE MEASURE
 # @st.cache_data
 # def resumesRank(jobDescriptionRnk, resumeRnk):
-#     job_description_text = preprocessing2(jobDescriptionRnk)
-#     resumeRnk['cleanedResume'] = resumeRnk['Resume'].apply(lambda x: preprocessing2(x))
-#     documents = [job_description_text] + resumeRnk['cleanedResume'].tolist()
-#     dictionary = Dictionary(documents)
-#     document_bow = [dictionary.doc2bow(doc) for doc in documents]
-#     tfidf = TfidfModel(document_bow, dictionary=dictionary)
-#     job_description_tfidf = tfidf[dictionary.doc2bow(job_description_text)]
-#     termsim_index = WordEmbeddingSimilarityIndex(model)
-#     termsim_matrix = SparseTermSimilarityMatrix(termsim_index, dictionary, tfidf)
-#     similarities = [
-#         termsim_matrix.inner_product(job_description_tfidf, tfidf[dictionary.doc2bow(resume)], normalized=(True, True))
-#         for resume in resumeRnk['cleanedResume']
-#     ]
-#     resumeRnk['Similarity Score (%)'] = similarities
-#     resumeRnk.sort_values(by='Similarity Score (%)', ascending=False, inplace=True)
-#     resumeRnk.drop(columns=['cleanedResume'], inplace=True)
+#     def get_word_embedding(text):
+#         words = text.split()
+#         valid_words = [word for word in text.split() if word in model]
+#         if valid_words:
+#             return np.mean([model[word] for word in valid_words], axis=0)
+#         else:
+#             return np.zeros(model.vector_size)
+#     jobDescriptionRnk = preprocessing2(jobDescriptionRnk)
+#     resumeRnk['cleanedResume'] = resumeRnk.Resume.apply(lambda x: preprocessing2(x))
+#     tfidfVectorizer = TfidfVectorizer(sublinear_tf = True, stop_words='english')
+#     jobTfidf = tfidfVectorizer.fit_transform([jobDescriptionRnk])
+#     jobDescriptionEmbedding = get_word_embedding(jobDescriptionRnk)
+#     resumeSimilarities = []
+#     for resumeContent in resumeRnk['cleanedResume']:
+#         resumeEmbedding = get_word_embedding(resumeContent)
+#         similarityFastText = cosine_similarity([jobDescriptionEmbedding], [resumeEmbedding])[0][0]
+#         similarityTFIDF = cosine_similarity(jobTfidf, tfidfVectorizer.transform([resumeContent]))[0][0]
+#         similarity = (0.6 * similarityTFIDF) + (0.4 * similarityFastText)
+#         final_similarity = similarity * 100
+#         resumeSimilarities.append(final_similarity)
+#     resumeRnk['Similarity Score (%)'] = resumeSimilarities
+#     resumeRnk = resumeRnk.sort_values(by='Similarity Score (%)', ascending=False)
+#     del resumeRnk['cleanedResume']
 #     return resumeRnk
+
+# SOFT COSINE MEASURE
+@st.cache_data
+def resumesRank(jobDescriptionRnk, resumeRnk):
+    job_description_text = preprocessing2(jobDescriptionRnk)
+    resumeRnk['cleanedResume'] = resumeRnk['Resume'].apply(lambda x: preprocessing2(x))
+    documents = [job_description_text] + resumeRnk['cleanedResume'].tolist()
+    dictionary = Dictionary(documents)
+    document_bow = [dictionary.doc2bow(doc) for doc in documents]
+    tfidf = TfidfModel(document_bow, dictionary=dictionary)
+    job_description_tfidf = tfidf[dictionary.doc2bow(job_description_text)]
+    termsim_index = WordEmbeddingSimilarityIndex(model)
+    termsim_matrix = SparseTermSimilarityMatrix(termsim_index, dictionary, tfidf)
+    similarities = [
+        termsim_matrix.inner_product(job_description_tfidf, tfidf[dictionary.doc2bow(resume)], normalized=(True, True))
+        for resume in resumeRnk['cleanedResume']
+    ]
+    resumeRnk['Similarity Score (%)'] = similarities
+    resumeRnk.sort_values(by='Similarity Score (%)', ascending=False, inplace=True)
+    resumeRnk.drop(columns=['cleanedResume'], inplace=True)
+    return resumeRnk
 
 # FASTTEXT WORD EMBEDDINGS
 # @st.cache_data
 # def resumesRank(jobDescriptionRnk, resumeRnk):
 #     def get_word_embedding(text):
 #         words = text.split()
-#         valid_words = [word for word in text.split() if word in word2vec_model]
+#         valid_words = [word for word in text.split() if word in model]
 #         if valid_words:
-#             return np.mean([word2vec_model[word] for word in valid_words], axis=0)
+#             return np.mean([model[word] for word in valid_words], axis=0)
 #         else:
-#             return np.zeros(word2vec_model.vector_size)
+#             return np.zeros(model.vector_size)
+#     jobDescriptionRnk = preprocessing2(jobDescriptionRnk)
 #     jobDescriptionEmbedding = get_word_embedding(jobDescriptionRnk)
 #     resumeRnk['cleanedResume'] = resumeRnk.Resume.apply(lambda x: preprocessing2(x))
 #     resumeSimilarities = []
@@ -319,9 +346,9 @@ def resumesRank(jobDescriptionRnk, resumeRnk):
 # TF-IDF + COSINE SIMILARITY
 # @st.cache_data
 # def resumesRank(jobDescriptionRnk, resumeRnk):
-#     jobDescriptionRnk = preprocessing(jobDescriptionRnk)
+#     jobDescriptionRnk = preprocessing2(jobDescriptionRnk)
 #     resumeRnk['cleanedResume'] = resumeRnk.Resume.apply(lambda x: preprocessing2(x))
-#     tfidfVectorizer = TfidfVectorizer(stop_words='english')
+#     tfidfVectorizer = TfidfVectorizer(sublinear_tf = True, stop_words='english')
 #     jobTfidf = tfidfVectorizer.fit_transform([jobDescriptionRnk])
 #     resumeSimilarities = []
 #     for resumeContent in resumeRnk['cleanedResume']:
