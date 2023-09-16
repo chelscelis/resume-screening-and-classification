@@ -14,6 +14,17 @@ backgroundPattern = """
 </style>
 """
 
+# backgroundPattern = """
+# <style>
+# [data-testid="stAppViewContainer"] {
+#     background-color: #FFFFFF;
+#     opacity: 1;
+#     background-image: radial-gradient(#D1D1D1 0.75px, #FFFFFF 0.75px);
+#     background-size: 15px 15px;
+# }
+# </style>
+# """
+
 st.markdown(backgroundPattern, unsafe_allow_html=True)
 
 st.write("""
