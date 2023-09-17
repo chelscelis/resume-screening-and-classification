@@ -215,6 +215,7 @@ def preprocessing2(text):
     # text = ' '.join(lemmatized_words)
     # return text 
     return lemmatized_words # for soft cossim
+    # return words
 
 def get_wordnet_pos(tag):
     if tag.startswith('J'):
@@ -263,31 +264,40 @@ from gensim.models import KeyedVectors
 
 @st.cache_data
 def loadModel():
-    model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/wiki-news-300d-1M.vec'
+    # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/GoogleNews-vectors-negative300.bin'
+    # model = KeyedVectors.load_word2vec_format(model_path, binary=True)
+
+    # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/wiki-news-300d-1M.vec'
+    model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/wiki-news-300d-1M-subword.vec'
+    # model = KeyedVectors.load_word2vec_format(model_path)
     model = KeyedVectors.load_word2vec_format(model_path, limit=100000)
+
+    # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/word2vec.bin'
+    # model = KeyedVectors.load_word2vec_format(model_path, binary=True)
+
+    # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/custom_word2vec.bin'
+    # model = KeyedVectors.load_word2vec_format(model_path, binary=True)
     return model
 model = loadModel()
 
 # SOFT COSSIM
 @st.cache_data
 def resumesRank(jobDescriptionRnk, resumeRnk):
-    job_description_text = preprocessing2(jobDescriptionRnk)
+    jobDescriptionText = preprocessing2(jobDescriptionRnk)
     resumeRnk['cleanedResume'] = resumeRnk['Resume'].apply(lambda x: preprocessing2(x))
-    documents = [job_description_text] + resumeRnk['cleanedResume'].tolist()
-    cleaned_resumes = resumeRnk['cleanedResume'].tolist()
-    documents = [job_description_text] + cleaned_resumes
+    documents = [jobDescriptionText] + resumeRnk['cleanedResume'].tolist()
     dictionary = Dictionary(documents)
-    document_bow = [dictionary.doc2bow(doc) for doc in documents]
-    tfidf = TfidfModel(document_bow, dictionary=dictionary)
-    job_description_tfidf = tfidf[dictionary.doc2bow(job_description_text)]
-    termsim_index = WordEmbeddingSimilarityIndex(model)
-    termsim_matrix = SparseTermSimilarityMatrix(termsim_index, dictionary, tfidf)
+    documentBow = [dictionary.doc2bow(doc) for doc in documents]
+    tfidf = TfidfModel(documentBow, dictionary=dictionary)
+    termSimIndex = WordEmbeddingSimilarityIndex(model)
+    termSimMatrix = SparseTermSimilarityMatrix(termSimIndex, dictionary, tfidf)
+    jobDescriptionTfidf = tfidf[dictionary.doc2bow(jobDescriptionText)]
     similarities = [
-        termsim_matrix.inner_product(job_description_tfidf, tfidf[dictionary.doc2bow(resume)], normalized=(True, True))
+        termSimMatrix.inner_product(jobDescriptionTfidf, tfidf[dictionary.doc2bow(resume)], normalized=(True, True))
         for resume in resumeRnk['cleanedResume']
     ]
-    resumeRnk['Similarity Score'] = similarities
-    resumeRnk.sort_values(by='Similarity Score', ascending=False, inplace=True)
+    resumeRnk['SimilarityScore'] = similarities
+    resumeRnk.sortValues(by='SimilarityScore', ascending=False, inplace=True)
     resumeRnk.drop(columns=['cleanedResume'], inplace=True)
     return resumeRnk
 
@@ -319,7 +329,7 @@ def resumesRank(jobDescriptionRnk, resumeRnk):
 #     del resumeRnk['cleanedResume']
 #     return resumeRnk
 
-# FASTTEXT WORD EMBEDDINGS
+# WORD EMBEDDINGS + COSSIM
 # @st.cache_data
 # def resumesRank(jobDescriptionRnk, resumeRnk):
 #     def get_word_embedding(text):
@@ -343,7 +353,7 @@ def resumesRank(jobDescriptionRnk, resumeRnk):
 #     del resumeRnk['cleanedResume']
 #     return resumeRnk
 
-# TF-IDF + COSINE SIMILARITY
+# TF-IDF + COSSIM
 # @st.cache_data
 # def resumesRank(jobDescriptionRnk, resumeRnk):
 #     jobDescriptionRnk = preprocessing2(jobDescriptionRnk)
