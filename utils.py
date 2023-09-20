@@ -260,6 +260,7 @@ import math
 from gensim.corpora import Dictionary
 from gensim.models import TfidfModel
 from gensim.similarities import SparseTermSimilarityMatrix, WordEmbeddingSimilarityIndex
+from gensim.similarities import SoftCosineSimilarity
 from gensim.models import KeyedVectors
 
 @st.cache_data
@@ -289,15 +290,20 @@ def resumesRank(jobDescriptionRnk, resumeRnk):
     dictionary = Dictionary(documents)
     documentBow = [dictionary.doc2bow(doc) for doc in documents]
     tfidf = TfidfModel(documentBow, dictionary=dictionary)
-    termSimIndex = WordEmbeddingSimilarityIndex(model)
-    termSimMatrix = SparseTermSimilarityMatrix(termSimIndex, dictionary, tfidf)
-    jobDescriptionTfidf = tfidf[dictionary.doc2bow(jobDescriptionText)]
-    similarities = [
-        termSimMatrix.inner_product(jobDescriptionTfidf, tfidf[dictionary.doc2bow(resume)], normalized=(True, True))
-        for resume in resumeRnk['cleanedResume']
-    ]
-    resumeRnk['SimilarityScore'] = similarities
-    resumeRnk.sortValues(by='SimilarityScore', ascending=False, inplace=True)
+    similarityIndex = WordEmbeddingSimilarityIndex(model)
+    similarityMatrix = SparseTermSimilarityMatrix(similarityIndex, dictionary, tfidf)
+    query = tfidf[dictionary.doc2bow(jobDescriptionText)]
+    # similarities = [
+    #     similarityMatrix.inner_product(query, tfidf[dictionary.doc2bow(resume)], normalized=(True, True))
+    #     for resume in resumeRnk['cleanedResume']
+    # ]
+    index = SoftCosineSimilarity(
+        tfidf[[dictionary.doc2bow(resume) for resume in resumeRnk['cleanedResume']]],
+        similarityMatrix 
+    )
+    similarities = index[query]
+    resumeRnk['Similarity Score'] = similarities
+    resumeRnk.sort_values(by='Similarity Score', ascending=False, inplace=True)
     resumeRnk.drop(columns=['cleanedResume'], inplace=True)
     return resumeRnk
 
