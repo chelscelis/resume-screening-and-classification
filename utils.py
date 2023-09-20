@@ -262,6 +262,8 @@ from gensim.models import TfidfModel
 from gensim.similarities import SparseTermSimilarityMatrix, WordEmbeddingSimilarityIndex
 from gensim.similarities import SoftCosineSimilarity
 from gensim.models import KeyedVectors
+import time
+import datetime
 
 @st.cache_data
 def loadModel():
@@ -284,19 +286,15 @@ model = loadModel()
 # SOFT COSSIM
 @st.cache_data
 def resumesRank(jobDescriptionRnk, resumeRnk):
+    startTime = time.time()
     jobDescriptionText = preprocessing2(jobDescriptionRnk)
     resumeRnk['cleanedResume'] = resumeRnk['Resume'].apply(lambda x: preprocessing2(x))
     documents = [jobDescriptionText] + resumeRnk['cleanedResume'].tolist()
     dictionary = Dictionary(documents)
-    documentBow = [dictionary.doc2bow(doc) for doc in documents]
-    tfidf = TfidfModel(documentBow, dictionary=dictionary)
+    tfidf = TfidfModel(dictionary=dictionary)
     similarityIndex = WordEmbeddingSimilarityIndex(model)
     similarityMatrix = SparseTermSimilarityMatrix(similarityIndex, dictionary, tfidf)
     query = tfidf[dictionary.doc2bow(jobDescriptionText)]
-    # similarities = [
-    #     similarityMatrix.inner_product(query, tfidf[dictionary.doc2bow(resume)], normalized=(True, True))
-    #     for resume in resumeRnk['cleanedResume']
-    # ]
     index = SoftCosineSimilarity(
         tfidf[[dictionary.doc2bow(resume) for resume in resumeRnk['cleanedResume']]],
         similarityMatrix 
@@ -305,8 +303,45 @@ def resumesRank(jobDescriptionRnk, resumeRnk):
     resumeRnk['Similarity Score'] = similarities
     resumeRnk.sort_values(by='Similarity Score', ascending=False, inplace=True)
     resumeRnk.drop(columns=['cleanedResume'], inplace=True)
+    endTime = time.time()
+    elapsedSeconds = endTime - startTime
+    elapsed_time = datetime.timedelta(seconds=elapsedSeconds)
+    hours, remainder = divmod(elapsed_time.seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    elapsed_time_str = f"{hours} hr {minutes} min {seconds} sec"
+    st.info(f'Finished in {elapsed_time_str}')
     return resumeRnk
 
+# 1 BY 1 SOFT COSSIM
+# @st.cache_data
+# def resumesRank(jobDescriptionRnk, resumeRnk):
+#     jobDescriptionText = preprocessing2(jobDescriptionRnk)
+#     resumeRnk['cleanedResume'] = resumeRnk['Resume'].apply(lambda x: preprocessing2(x))
+#     similarityscore = []
+#     for resume in resumeRnk['cleanedResume']:
+#         documents = [jobDescriptionText, resume] 
+#         dictionary = Dictionary(documents)
+#         documentBow = [dictionary.doc2bow(doc) for doc in documents]
+#         tfidf = TfidfModel(documentBow, dictionary=dictionary)
+#         similarityIndex = WordEmbeddingSimilarityIndex(model)
+#         similarityMatrix = SparseTermSimilarityMatrix(similarityIndex, dictionary, tfidf)
+#         # similarityMatrix = SparseTermSimilarityMatrix(similarityIndex, dictionary)
+#         value = tfidf[dictionary.doc2bow(resume)]
+#         # value = dictionary.doc2bow(jobDescriptionText)
+#         index = SoftCosineSimilarity(
+#             # tfidf[[dictionary.doc2bow(resume)]], 
+#             tfidf[[dictionary.doc2bow(jobDescriptionText)]], 
+#             # [dictionary.doc2bow(resume) for resume in resumeRnk['cleanedResume']],
+#             similarityMatrix, 
+#         )
+#         similarities = index[value]
+#         similarityscore.append(similarities)
+#     print(similarityscore)
+#     resumeRnk['Similarity Score'] = similarityscore 
+#     resumeRnk.sort_values(by='Similarity Score', ascending=False, inplace=True)
+#     resumeRnk.drop(columns=['cleanedResume'], inplace=True)
+#     return resumeRnk
+#
 # TF-IDF SCORE + WORD EMBEDDINGS SCORE
 # @st.cache_data
 # def resumesRank(jobDescriptionRnk, resumeRnk):
