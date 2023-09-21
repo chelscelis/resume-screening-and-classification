@@ -1,22 +1,29 @@
 import altair as alt
+import datetime
 import joblib
+import nltk
 import numpy as np
 import pandas as pd
 import re
 import streamlit as st 
+import time
 
+from gensim.corpora import Dictionary
+from gensim.models import KeyedVectors, TfidfModel
+from gensim.similarities import SoftCosineSimilarity, SparseTermSimilarityMatrix, WordEmbeddingSimilarityIndex
 from io import BytesIO
-from nltk.corpus import stopwords
-from nltk.stem import PorterStemmer
-from pandas.api.types import (
-    is_categorical_dtype,
-    is_numeric_dtype,
-)
+from nltk import pos_tag, word_tokenize
+from nltk.corpus import stopwords, wordnet
+from nltk.stem import PorterStemmer, WordNetLemmatizer
+from pandas.api.types import is_categorical_dtype, is_numeric_dtype
 from scipy.sparse import csr_matrix, hstack
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+
+nltk.download('averaged_perceptron_tagger')
+nltk.download('punkt')
+nltk.download('stopwords')
 
 stop_words = set(stopwords.words('english'))
+lemmatizer = WordNetLemmatizer()
 stemmer = PorterStemmer()
 
 def addZeroFeatures(matrix):
@@ -27,6 +34,30 @@ def addZeroFeatures(matrix):
         zeroFeatures = csr_matrix((numDocs, missingFeatures), dtype=np.float64)
         matrix = hstack([matrix, zeroFeatures])
     return matrix
+
+@st.cache_data
+def classifyResumes(df):
+    startTime = time.time()
+    df['cleanedResume'] = df.Resume.apply(lambda x: performStemming(x))
+    resumeText = df['cleanedResume'].values
+    vectorizer = loadTfidfVectorizer()
+    wordFeatures = vectorizer.transform(resumeText)
+    wordFeaturesWithZeros = addZeroFeatures(wordFeatures)
+    finalFeatures = dimensionalityReduction(wordFeaturesWithZeros)
+    knn = loadKnnModel()
+    predictedCategories = knn.predict(finalFeatures)
+    le = loadLabelEncoder()
+    df['Industry Category'] = le.inverse_transform(predictedCategories)
+    df['Industry Category'] = pd.Categorical(df['Industry Category'])
+    df.drop(columns=['cleanedResume'], inplace=True)
+    endTime = time.time()
+    elapsedSeconds = endTime - startTime
+    elapsedTime = datetime.timedelta(seconds=elapsedSeconds)
+    hours, remainder = divmod(elapsedTime.seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    elapsedTimeStr = f"{hours} hr {minutes} min {seconds} sec"
+    st.info(f'Finished in {elapsedTimeStr}')
+    return df 
 
 def clickClassify():
     st.session_state.processClf = True
@@ -46,11 +77,11 @@ def convertDfToXlsx(df):
     processedData = output.getvalue()
     return processedData
 
-def createBarChart(resumeClf):
-    value_counts = resumeClf['Industry Category'].value_counts().reset_index()
-    value_counts.columns = ['Industry Category', 'Count']
-    new_dataframe = pd.DataFrame(value_counts)
-    barChart = alt.Chart(new_dataframe,
+def createBarChart(df):
+    valueCounts = df['Industry Category'].value_counts().reset_index()
+    valueCounts.columns = ['Industry Category', 'Count']
+    newDataframe = pd.DataFrame(valueCounts)
+    barChart = alt.Chart(newDataframe,
     ).mark_bar(
         color = '#56B6C2',
         size = 13 
@@ -69,22 +100,23 @@ def dimensionalityReduction(features):
     return features    
 
 def filterDataframeClf(df: pd.DataFrame) -> pd.DataFrame:
-    modify = st.toggle("Add filters", key = 'toggle-clf-1')
+    modify = st.toggle("Add filters", key = 'filter-clf-1')
     if not modify:
         return df
     df = df.copy()
     modificationContainer = st.container()
     with modificationContainer:
-        toFilterColumns = st.multiselect("Filter table on", df.columns, key = 'toggle-clf-2')
+        toFilterColumns = st.multiselect("Filter table on", df.columns, key = 'filter-clf-2')
         for column in toFilterColumns:
             left, right = st.columns((1, 20))
             left.write("↳")
+            widgetKey = f'filter-clf-{toFilterColumns.index(column)}-{column}'
             if is_categorical_dtype(df[column]):
                 userCatInput = right.multiselect(
                     f'Values for {column}',
                     df[column].unique(),
                     default = list(df[column].unique()),
-                    key = 'toggle-clf-3'
+                    key = widgetKey 
                 )
                 df = df[df[column].isin(userCatInput)]
             elif is_numeric_dtype(df[column]):
@@ -97,35 +129,37 @@ def filterDataframeClf(df: pd.DataFrame) -> pd.DataFrame:
                     max_value = _max,
                     value = (_min, _max),
                     step = step,
-                    key = 'toggle-clf-4'
+                    key = widgetKey 
                 )
                 df = df[df[column].between(*userNumInput)]
             else:
                 userTextInput = right.text_input(
                     f'Substring or regex in {column}',
-                    key = 'toggle-clf-5'
+                    key = widgetKey 
                 )
                 if userTextInput:
-                    df = df[df[column].astype(str).str.contains(userTextInput)]
+                    userTextInput = userTextInput.lower()
+                    df = df[df[column].astype(str).str.lower().str.contains(userTextInput)]
     return df
 
 def filterDataframeRnk(df: pd.DataFrame) -> pd.DataFrame:
-    modify = st.toggle("Add filters", key = 'toggle-rnk-1')
+    modify = st.toggle("Add filters", key = 'filter-rnk-1')
     if not modify:
         return df
     df = df.copy()
     modificationContainer = st.container()
     with modificationContainer:
-        toFilterColumns = st.multiselect("Filter table on", df.columns, key = 'toggle-rnk-2')
+        toFilterColumns = st.multiselect("Filter table on", df.columns, key = 'filter-rnk-2')
         for column in toFilterColumns:
             left, right = st.columns((1, 20))
             left.write("↳")
+            widgetKey = f'filter-rnk-{toFilterColumns.index(column)}-{column}'
             if is_categorical_dtype(df[column]):
                 userCatInput = right.multiselect(
                     f'Values for {column}',
                     df[column].unique(),
                     default = list(df[column].unique()),
-                    key = 'toggle-rnk-3'
+                    key = widgetKey
                 )
                 df = df[df[column].isin(userCatInput)]
             elif is_numeric_dtype(df[column]):
@@ -138,17 +172,30 @@ def filterDataframeRnk(df: pd.DataFrame) -> pd.DataFrame:
                     max_value = _max,
                     value = (_min, _max),
                     step = step,
-                    key = 'toggle-rnk-4'
+                    key = widgetKey
                 )
                 df = df[df[column].between(*userNumInput)]
             else:
                 userTextInput = right.text_input(
                     f'Substring or regex in {column}',
-                    key = 'toggle-rnk-5'
+                    key = widgetKey
                 )
                 if userTextInput:
-                    df = df[df[column].astype(str).str.contains(userTextInput)]
+                    userTextInput = userTextInput.lower()
+                    df = df[df[column].astype(str).str.lower().str.contains(userTextInput)]
     return df
+
+def getWordnetPos(tag):
+    if tag.startswith('J'):
+        return wordnet.ADJ
+    elif tag.startswith('V'):
+        return wordnet.VERB
+    elif tag.startswith('N'):
+        return wordnet.NOUN
+    elif tag.startswith('R'):
+        return wordnet.ADV
+    else:
+        return wordnet.NOUN
 
 def loadKnnModel():
     knnModelFileName = f'knn_model.joblib'
@@ -162,7 +209,7 @@ def loadTfidfVectorizer():
     tfidfVectorizerFileName = f'tfidf_vectorizer.joblib' 
     return joblib.load(tfidfVectorizerFileName)
 
-def preprocessing(text):
+def performLemmatization(text):
     text = re.sub('http\S+\s*', ' ', text)
     text = re.sub('RT|cc', ' ', text)
     text = re.sub('#\S+', '', text)
@@ -170,68 +217,76 @@ def preprocessing(text):
     text = re.sub('[%s]' % re.escape("""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""), ' ', text)
     text = re.sub(r'[^\x00-\x7f]',r' ', text)
     text = re.sub('\s+', ' ', text)
-    words = text.split()
-    words = [word for word in words if word.lower() not in stop_words]
+    words = word_tokenize(text)
+    words = [
+        lemmatizer.lemmatize(word.lower(), pos=getWordnetPos(pos)) 
+        for word, pos in pos_tag(words) if word.lower() not in stop_words
+    ]
+    return words
+
+def performStemming(text):
+    text = re.sub('http\S+\s*', ' ', text)
+    text = re.sub('RT|cc', ' ', text)
+    text = re.sub('#\S+', '', text)
+    text = re.sub('@\S+', '  ', text)
+    text = re.sub('[%s]' % re.escape("""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""), ' ', text)
+    text = re.sub(r'[^\x00-\x7f]',r' ', text)
+    text = re.sub('\s+', ' ', text)
+    words = word_tokenize(text)
     words = [stemmer.stem(word.lower()) for word in words if word.lower() not in stop_words]
     text = ' '.join(words)
     return text 
 
 @st.cache_data
-def resumesClassify(resumeClf):
-    resumeClf['cleanedResume'] = resumeClf.Resume.apply(lambda x: preprocessing(x))
-    resumeText = resumeClf['cleanedResume'].values
-    vectorizer = loadTfidfVectorizer()
-    wordFeatures = vectorizer.transform(resumeText)
-    wordFeaturesWithZeros = addZeroFeatures(wordFeatures)
-    finalFeatures = dimensionalityReduction(wordFeaturesWithZeros)
-    knn = loadKnnModel()
-    predictedCategories = knn.predict(finalFeatures)
-    le = loadLabelEncoder()
-    resumeClf['Industry Category'] = le.inverse_transform(predictedCategories)
-    resumeClf['Industry Category'] = pd.Categorical(resumeClf['Industry Category'])
-    del resumeClf['cleanedResume']
-    return resumeClf
+def loadModel():
+    # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/GoogleNews-vectors-negative300.bin'
+    # model = KeyedVectors.load_word2vec_format(model_path, binary=True)
 
-from nltk.stem import WordNetLemmatizer
-import nltk
-from nltk import pos_tag
-nltk.download('wordnet')
-lemmatizer = WordNetLemmatizer()
-def preprocessing2(text):
-    text = re.sub('http\S+\s*', ' ', text)
-    text = re.sub('RT|cc', ' ', text)
-    text = re.sub('#\S+', '', text)
-    text = re.sub('@\S+', '  ', text)
-    text = re.sub('[%s]' % re.escape("""!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~"""), ' ', text)
-    text = re.sub(r'[^\x00-\x7f]',r' ', text)
-    text = re.sub('\s+', ' ', text)
-    words = text.split()
-    words = [word for word in words if word.lower() not in stop_words]
-    tagged_words = pos_tag(words)
-    lemmatized_words = []
-    for word, pos in tagged_words:
-        wordnet_pos = get_wordnet_pos(pos)
-        lemmatized_words.append(lemmatizer.lemmatize(word.lower(), wordnet_pos))
-    # text = ' '.join(lemmatized_words)
-    # return text 
-    return lemmatized_words # for soft cossim
-    # return words
+    # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/wiki-news-300d-1M.vec'
+    model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/wiki-news-300d-1M-subword.vec'
+    # model = KeyedVectors.load_word2vec_format(model_path)
+    model = KeyedVectors.load_word2vec_format(model_path, limit=100000)
 
-def get_wordnet_pos(tag):
-    if tag.startswith('J'):
-        return 'a'  # Adjective
-    elif tag.startswith('N'):
-        return 'n'  # Noun
-    elif tag.startswith('R'):
-        return 'r'  # Adverb
-    elif tag.startswith('V'):
-        return 'v'  # Verb
-    else:
-        return 'n'
+    # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/word2vec.bin'
+    # model = KeyedVectors.load_word2vec_format(model_path, binary=True)
 
-from sklearn.decomposition import TruncatedSVD
-import math
+    # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/custom_word2vec.bin'
+    # model = KeyedVectors.load_word2vec_format(model_path, binary=True)
+    return model
+
+model = loadModel()
+
+@st.cache_data
+def rankResumes(text, df):
+    startTime = time.time()
+    jobDescriptionText = performLemmatization(text)
+    df['cleanedResume'] = df['Resume'].apply(lambda x: performLemmatization(x))
+    documents = [jobDescriptionText] + df['cleanedResume'].tolist()
+    dictionary = Dictionary(documents)
+    tfidf = TfidfModel(dictionary=dictionary)
+    similarityIndex = WordEmbeddingSimilarityIndex(model)
+    similarityMatrix = SparseTermSimilarityMatrix(similarityIndex, dictionary, tfidf)
+    query = tfidf[dictionary.doc2bow(jobDescriptionText)]
+    index = SoftCosineSimilarity(
+        tfidf[[dictionary.doc2bow(resume) for resume in df['cleanedResume']]],
+        similarityMatrix 
+    )
+    similarities = index[query]
+    df['Similarity Score'] = similarities
+    df.sort_values(by='Similarity Score', ascending=False, inplace=True)
+    df.drop(columns=['cleanedResume'], inplace=True)
+    endTime = time.time()
+    elapsedSeconds = endTime - startTime
+    elapsedTime = datetime.timedelta(seconds=elapsedSeconds)
+    hours, remainder = divmod(elapsedTime.seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    elapsedTimeStr= f"{hours} hr {minutes} min {seconds} sec"
+    st.info(f'Finished in {elapsedTimeStr}')
+    return df 
+
 # TF-IDF + LSA + COSSIM
+# from sklearn.decomposition import TruncatedSVD
+# import math
 # @st.cache_data
 # def resumesRank(jobDescriptionRnk, resumeRnk):
 #     jobDescriptionRnk = preprocessing(jobDescriptionRnk)
@@ -256,61 +311,6 @@ import math
 #     resumeRnk = resumeRnk.sort_values(by='Similarity Score (%)', ascending=False)
 #     del resumeRnk['cleanedResume']
 #     return resumeRnk
-
-from gensim.corpora import Dictionary
-from gensim.models import TfidfModel
-from gensim.similarities import SparseTermSimilarityMatrix, WordEmbeddingSimilarityIndex
-from gensim.similarities import SoftCosineSimilarity
-from gensim.models import KeyedVectors
-import time
-import datetime
-
-@st.cache_data
-def loadModel():
-    # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/GoogleNews-vectors-negative300.bin'
-    # model = KeyedVectors.load_word2vec_format(model_path, binary=True)
-
-    # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/wiki-news-300d-1M.vec'
-    model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/wiki-news-300d-1M-subword.vec'
-    # model = KeyedVectors.load_word2vec_format(model_path)
-    model = KeyedVectors.load_word2vec_format(model_path, limit=100000)
-
-    # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/word2vec.bin'
-    # model = KeyedVectors.load_word2vec_format(model_path, binary=True)
-
-    # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/custom_word2vec.bin'
-    # model = KeyedVectors.load_word2vec_format(model_path, binary=True)
-    return model
-model = loadModel()
-
-# SOFT COSSIM
-@st.cache_data
-def resumesRank(jobDescriptionRnk, resumeRnk):
-    startTime = time.time()
-    jobDescriptionText = preprocessing2(jobDescriptionRnk)
-    resumeRnk['cleanedResume'] = resumeRnk['Resume'].apply(lambda x: preprocessing2(x))
-    documents = [jobDescriptionText] + resumeRnk['cleanedResume'].tolist()
-    dictionary = Dictionary(documents)
-    tfidf = TfidfModel(dictionary=dictionary)
-    similarityIndex = WordEmbeddingSimilarityIndex(model)
-    similarityMatrix = SparseTermSimilarityMatrix(similarityIndex, dictionary, tfidf)
-    query = tfidf[dictionary.doc2bow(jobDescriptionText)]
-    index = SoftCosineSimilarity(
-        tfidf[[dictionary.doc2bow(resume) for resume in resumeRnk['cleanedResume']]],
-        similarityMatrix 
-    )
-    similarities = index[query]
-    resumeRnk['Similarity Score'] = similarities
-    resumeRnk.sort_values(by='Similarity Score', ascending=False, inplace=True)
-    resumeRnk.drop(columns=['cleanedResume'], inplace=True)
-    endTime = time.time()
-    elapsedSeconds = endTime - startTime
-    elapsed_time = datetime.timedelta(seconds=elapsedSeconds)
-    hours, remainder = divmod(elapsed_time.seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    elapsed_time_str = f"{hours} hr {minutes} min {seconds} sec"
-    st.info(f'Finished in {elapsed_time_str}')
-    return resumeRnk
 
 # 1 BY 1 SOFT COSSIM
 # @st.cache_data

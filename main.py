@@ -59,7 +59,7 @@ with tab2:
         st.divider()
         st.header('Output')
         resumeClf = pd.read_excel(uploadedResumeClf)
-        resumeClf = resumesClassify(resumeClf)
+        resumeClf = classifyResumes(resumeClf)
         with st.expander('View Bar Chart'):
             barChart = createBarChart(resumeClf)
             st.altair_chart(barChart, use_container_width = True)
@@ -89,7 +89,7 @@ with tab3:
         st.header('Output')
         jobDescriptionRnk = uploadedJobDescriptionRnk.read().decode('utf-8')
         resumeRnk = pd.read_excel(uploadedResumeRnk)
-        resumeRnk = resumesRank(jobDescriptionRnk, resumeRnk)
+        resumeRnk = rankResumes(jobDescriptionRnk, resumeRnk)
         with st.expander('View Job Description'):
             st.write(jobDescriptionRnk)
         currentRnk = filterDataframeRnk(resumeRnk)
