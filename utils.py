@@ -35,29 +35,90 @@ def addZeroFeatures(matrix):
         matrix = hstack([matrix, zeroFeatures])
     return matrix
 
-@st.cache_data
+@st.cache_data(max_entries = 1, show_spinner = False)
 def classifyResumes(df):
+    # WITH PROGRESS BAR
+    progressBar = st.progress(0)
+    progressBar.progress(0, text = "Preprocessing data ...")
     startTime = time.time()
     df['cleanedResume'] = df.Resume.apply(lambda x: performStemming(x))
     resumeText = df['cleanedResume'].values
+    progressBar.progress(20, text = "Extracting features ...")
     vectorizer = loadTfidfVectorizer()
     wordFeatures = vectorizer.transform(resumeText)
     wordFeaturesWithZeros = addZeroFeatures(wordFeatures)
+    progressBar.progress(40, text = "Reducing dimensionality ...")
     finalFeatures = dimensionalityReduction(wordFeaturesWithZeros)
+    progressBar.progress(60, text = "Predicting categories ...")
     knn = loadKnnModel()
     predictedCategories = knn.predict(finalFeatures)
+    progressBar.progress(80, text = "Finishing touches ...")
     le = loadLabelEncoder()
     df['Industry Category'] = le.inverse_transform(predictedCategories)
     df['Industry Category'] = pd.Categorical(df['Industry Category'])
-    df.drop(columns=['cleanedResume'], inplace=True)
+    df.drop(columns = ['cleanedResume'], inplace = True)
     endTime = time.time()
     elapsedSeconds = endTime - startTime
-    elapsedTime = datetime.timedelta(seconds=elapsedSeconds)
-    hours, remainder = divmod(elapsedTime.seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    elapsedTimeStr = f"{hours} hr {minutes} min {seconds} sec"
-    st.info(f'Finished in {elapsedTimeStr}')
+    hours, remainder = divmod(int(elapsedSeconds), 3600)
+    minutes, _ = divmod(remainder, 60)
+    secondsWithDecimals = '{:.2f}'.format(elapsedSeconds % 60)
+    elapsedTimeStr = f'{hours} h : {minutes} m : {secondsWithDecimals} s'
+    progressBar.progress(100, text = f'Classification Complete!')
+    time.sleep(1)
+    progressBar.empty()
+    st.info(f'Finished classifying {len(resumeText)} resumes - {elapsedTimeStr}')
     return df 
+
+    # WITH SPINNER
+    # startTime = time.time()
+    # with st.spinner('Cleaning data ...'):
+    #     df['cleanedResume'] = df.Resume.apply(lambda x: performStemming(x))
+    #     resumeText = df['cleanedResume'].values
+    # with st.spinner('Extracting features ...'):
+    #     vectorizer = loadTfidfVectorizer()
+    #     wordFeatures = vectorizer.transform(resumeText)
+    #     wordFeaturesWithZeros = addZeroFeatures(wordFeatures)
+    # with st.spinner('Reducing dimensionality ...'):
+    #     finalFeatures = dimensionalityReduction(wordFeaturesWithZeros)
+    # with st.spinner('Predicting categories ...'):
+    #     knn = loadKnnModel()
+    #     predictedCategories = knn.predict(finalFeatures)
+    # with st.spinner('Finishing touches ...'):
+    #     le = loadLabelEncoder()
+    #     df['Industry Category'] = le.inverse_transform(predictedCategories)
+    #     df['Industry Category'] = pd.Categorical(df['Industry Category'])
+    #     df.drop(columns = ['cleanedResume'], inplace = True)
+    # endTime = time.time()
+    # elapsedSeconds = endTime - startTime
+    # elapsedTime = datetime.timedelta(seconds = elapsedSeconds)
+    # hours, remainder = divmod(elapsedTime.seconds, 3600)
+    # minutes, seconds = divmod(remainder, 60)
+    # elapsedTimeStr = f"{hours} hr {minutes} min {seconds} sec"
+    # st.info(f'Finished in {elapsedTimeStr}')
+    # return df 
+
+    # NO LOADING WIDGET
+    # startTime = time.time()
+    # df['cleanedResume'] = df.Resume.apply(lambda x: performStemming(x))
+    # resumeText = df['cleanedResume'].values
+    # vectorizer = loadTfidfVectorizer()
+    # wordFeatures = vectorizer.transform(resumeText)
+    # wordFeaturesWithZeros = addZeroFeatures(wordFeatures)
+    # finalFeatures = dimensionalityReduction(wordFeaturesWithZeros)
+    # knn = loadKnnModel()
+    # predictedCategories = knn.predict(finalFeatures)
+    # le = loadLabelEncoder()
+    # df['Industry Category'] = le.inverse_transform(predictedCategories)
+    # df['Industry Category'] = pd.Categorical(df['Industry Category'])
+    # df.drop(columns = ['cleanedResume'], inplace = True)
+    # endTime = time.time()
+    # elapsedSeconds = endTime - startTime
+    # elapsedTime = datetime.timedelta(seconds = elapsedSeconds)
+    # hours, remainder = divmod(elapsedTime.seconds, 3600)
+    # minutes, seconds = divmod(remainder, 60)
+    # elapsedTimeStr = f"{hours} hr {minutes} min {seconds} sec"
+    # st.info(f'Finished in {elapsedTimeStr}')
+    # return df 
 
 def clickClassify():
     st.session_state.processClf = True
@@ -67,8 +128,8 @@ def clickRank():
 
 def convertDfToXlsx(df):
     output = BytesIO()
-    writer = pd.ExcelWriter(output, engine='xlsxwriter')
-    df.to_excel(writer, index=False, sheet_name='Sheet1')
+    writer = pd.ExcelWriter(output, engine = 'xlsxwriter')
+    df.to_excel(writer, index = False, sheet_name = 'Sheet1')
     workbook = writer.book
     worksheet = writer.sheets['Sheet1']
     format1 = workbook.add_format({'num_format': '0.00'}) 
@@ -219,7 +280,7 @@ def performLemmatization(text):
     text = re.sub('\s+', ' ', text)
     words = word_tokenize(text)
     words = [
-        lemmatizer.lemmatize(word.lower(), pos=getWordnetPos(pos)) 
+        lemmatizer.lemmatize(word.lower(), pos = getWordnetPos(pos)) 
         for word, pos in pos_tag(words) if word.lower() not in stop_words
     ]
     return words
@@ -245,7 +306,7 @@ def loadModel():
     # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/wiki-news-300d-1M.vec'
     model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/wiki-news-300d-1M-subword.vec'
     # model = KeyedVectors.load_word2vec_format(model_path)
-    model = KeyedVectors.load_word2vec_format(model_path, limit=100000)
+    model = KeyedVectors.load_word2vec_format(model_path, limit = 100000)
 
     # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/word2vec.bin'
     # model = KeyedVectors.load_word2vec_format(model_path, binary=True)
@@ -256,38 +317,78 @@ def loadModel():
 
 model = loadModel()
 
-@st.cache_data
+@st.cache_data(max_entries = 1, show_spinner = False)
 def rankResumes(text, df):
+    # WITH PROGRESS BAR
+    progressBar = st.progress(0)
+    progressBar.progress(0, text = "Preprocessing data ...")
     startTime = time.time()
     jobDescriptionText = performLemmatization(text)
     df['cleanedResume'] = df['Resume'].apply(lambda x: performLemmatization(x))
     documents = [jobDescriptionText] + df['cleanedResume'].tolist()
+    progressBar.progress(13, text = "Creating a dictionary ...")
     dictionary = Dictionary(documents)
-    tfidf = TfidfModel(dictionary=dictionary)
+    progressBar.progress(25, text = "Creating a TF-IDF model ...")
+    tfidf = TfidfModel(dictionary = dictionary)
+    progressBar.progress(38, text = "Creating a Similarity Index...")
     similarityIndex = WordEmbeddingSimilarityIndex(model)
+    progressBar.progress(50, text = "Creating a Similarity Matrix...")
     similarityMatrix = SparseTermSimilarityMatrix(similarityIndex, dictionary, tfidf)
+    progressBar.progress(63, text = "Setting up job description as the query ...")
     query = tfidf[dictionary.doc2bow(jobDescriptionText)]
+    progressBar.progress(75, text = "Calculating semantic similarities ...")
     index = SoftCosineSimilarity(
         tfidf[[dictionary.doc2bow(resume) for resume in df['cleanedResume']]],
         similarityMatrix 
     )
     similarities = index[query]
+    progressBar.progress(88, text = "Finishing touches ...")
     df['Similarity Score'] = similarities
-    df.sort_values(by='Similarity Score', ascending=False, inplace=True)
-    df.drop(columns=['cleanedResume'], inplace=True)
+    df['Rank'] = df['Similarity Score'].rank(ascending=False, method='dense').astype(int)
+    df.sort_values(by='Rank', inplace=True)
+    df.drop(columns = ['cleanedResume'], inplace = True)
     endTime = time.time()
     elapsedSeconds = endTime - startTime
-    elapsedTime = datetime.timedelta(seconds=elapsedSeconds)
-    hours, remainder = divmod(elapsedTime.seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    elapsedTimeStr= f"{hours} hr {minutes} min {seconds} sec"
-    st.info(f'Finished in {elapsedTimeStr}')
+    hours, remainder = divmod(int(elapsedSeconds), 3600)
+    minutes, _ = divmod(remainder, 60)
+    secondsWithDecimals = '{:.2f}'.format(elapsedSeconds % 60)
+    elapsedTimeStr = f'{hours} h : {minutes} m : {secondsWithDecimals} s'
+    progressBar.progress(100, text = f'Classification Complete!')
+    time.sleep(1)
+    progressBar.empty()
+    st.info(f'Finished ranking {len(df)} resumes - {elapsedTimeStr}')
     return df 
+    
+    # NO LOADING WIDGET
+    # startTime = time.time()
+    # jobDescriptionText = performLemmatization(text)
+    # df['cleanedResume'] = df['Resume'].apply(lambda x: performLemmatization(x))
+    # documents = [jobDescriptionText] + df['cleanedResume'].tolist()
+    # dictionary = Dictionary(documents)
+    # tfidf = TfidfModel(dictionary = dictionary)
+    # similarityIndex = WordEmbeddingSimilarityIndex(model)
+    # similarityMatrix = SparseTermSimilarityMatrix(similarityIndex, dictionary, tfidf)
+    # query = tfidf[dictionary.doc2bow(jobDescriptionText)]
+    # index = SoftCosineSimilarity(
+    #     tfidf[[dictionary.doc2bow(resume) for resume in df['cleanedResume']]],
+    #     similarityMatrix 
+    # )
+    # similarities = index[query]
+    # df['Similarity Score'] = similarities
+    # df.sort_values(by = 'Similarity Score', ascending = False, inplace = True)
+    # df.drop(columns = ['cleanedResume'], inplace = True)
+    # endTime = time.time()
+    # elapsedSeconds = endTime - startTime
+    # elapsedTime = datetime.timedelta(seconds = elapsedSeconds)
+    # hours, remainder = divmod(elapsedTime.seconds, 3600)
+    # minutes, seconds = divmod(remainder, 60)
+    # elapsedTimeStr = f"{hours} hr {minutes} min {seconds} sec"
+    # st.info(f'Finished in {elapsedTimeStr}')
+    # return df 
 
 # TF-IDF + LSA + COSSIM
 # from sklearn.decomposition import TruncatedSVD
 # import math
-# @st.cache_data
 # def resumesRank(jobDescriptionRnk, resumeRnk):
 #     jobDescriptionRnk = preprocessing(jobDescriptionRnk)
 #     resumeRnk['cleanedResume'] = resumeRnk.Resume.apply(lambda x: preprocessing(x))
@@ -313,7 +414,6 @@ def rankResumes(text, df):
 #     return resumeRnk
 
 # 1 BY 1 SOFT COSSIM
-# @st.cache_data
 # def resumesRank(jobDescriptionRnk, resumeRnk):
 #     jobDescriptionText = preprocessing2(jobDescriptionRnk)
 #     resumeRnk['cleanedResume'] = resumeRnk['Resume'].apply(lambda x: preprocessing2(x))
@@ -343,7 +443,6 @@ def rankResumes(text, df):
 #     return resumeRnk
 #
 # TF-IDF SCORE + WORD EMBEDDINGS SCORE
-# @st.cache_data
 # def resumesRank(jobDescriptionRnk, resumeRnk):
 #     def get_word_embedding(text):
 #         words = text.split()
@@ -371,7 +470,6 @@ def rankResumes(text, df):
 #     return resumeRnk
 
 # WORD EMBEDDINGS + COSSIM
-# @st.cache_data
 # def resumesRank(jobDescriptionRnk, resumeRnk):
 #     def get_word_embedding(text):
 #         words = text.split()
@@ -395,7 +493,6 @@ def rankResumes(text, df):
 #     return resumeRnk
 
 # TF-IDF + COSSIM
-# @st.cache_data
 # def resumesRank(jobDescriptionRnk, resumeRnk):
 #     jobDescriptionRnk = preprocessing2(jobDescriptionRnk)
 #     resumeRnk['cleanedResume'] = resumeRnk.Resume.apply(lambda x: preprocessing2(x))
@@ -419,7 +516,8 @@ def writeGettingStarted():
     The sheer volume of applications received for a single job posting can make it extremely time-consuming to identify the most suitable candidates efficiently. 
     This often leads to missed opportunities and the potential loss of top-tier talent.
 
-    The ***Resume Screening & Classification*** website application aims to help alleviate the challenges posed by manual resume screening. The objectives are:
+    The ***Resume Screening & Classification*** website application aims to help alleviate the challenges posed by manual resume screening. 
+    The main objectives are:
     - To classify the resumes into their most suitable job industry category
     - To compare the resumes to the job description and rank them by similarity
     """)
@@ -428,16 +526,13 @@ def writeGettingStarted():
     ## Input Guide 
     #### For the Job Description: 
     Ensure the job description is saved in a text (.txt) file. 
-    Clearly outline the responsibilities, qualifications, and skills associated with the position.
+    Kindly outline the responsibilities, qualifications, and skills associated with the position.
 
     #### For the Resumes: 
     Resumes must be compiled in an excel (.xlsx) file. 
     The organization of columns is up to you but ensure that the "Resume" column is present.
-    The values under this column should include all the relevant details of the resume.
-    You may refer to the sample format below.
+    The values under this column should include all the relevant details for each resume.
     """)
-    with st.expander('View sample format'):
-        st.write('# Hello world')
     st.divider()
     st.write("""
     ## Demo Walkthrough
@@ -495,10 +590,15 @@ def writeGettingStarted():
         """)
     st.write("""
     #### Rank Tab:
-    The web app will rank the resumes based on their similarity to the job description. 
-    Keep in mind, the ranking placement does not imply that one applicant is absolutely better than the other.
-    Interviews and other tests are still preferred before making final decisions.
+    The web app will rank the resumes based on their semantic similarity to the job description. 
+    The similarity score ranges from -1 to 1.
+    A score of 1 is achieved when Document A and Document B are identical.
 
+    ##### **Kindly take note:**
+
+    It's important to note that these scores are not absolute and may change when more resumes are added in the comparison.
+    The ranking algorithm dynamically adjusts its results based on the entire set of uploaded resumes.
+    We recommend considering the scores as a relative measure rather than an absolute determination.
     """)
     with st.expander('Ranking Steps'):
         st.write("""
