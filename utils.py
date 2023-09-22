@@ -1,5 +1,5 @@
 import altair as alt
-import datetime
+# import datetime
 import joblib
 import nltk
 import numpy as np
@@ -16,6 +16,7 @@ from nltk import pos_tag, word_tokenize
 from nltk.corpus import stopwords, wordnet
 from nltk.stem import PorterStemmer, WordNetLemmatizer
 from pandas.api.types import is_categorical_dtype, is_numeric_dtype
+from PIL import Image
 from scipy.sparse import csr_matrix, hstack
 
 nltk.download('averaged_perceptron_tagger')
@@ -68,34 +69,6 @@ def classifyResumes(df):
     progressBar.empty()
     st.info(f'Finished classifying {len(resumeText)} resumes - {elapsedTimeStr}')
     return df 
-
-    # WITH SPINNER
-    # startTime = time.time()
-    # with st.spinner('Cleaning data ...'):
-    #     df['cleanedResume'] = df.Resume.apply(lambda x: performStemming(x))
-    #     resumeText = df['cleanedResume'].values
-    # with st.spinner('Extracting features ...'):
-    #     vectorizer = loadTfidfVectorizer()
-    #     wordFeatures = vectorizer.transform(resumeText)
-    #     wordFeaturesWithZeros = addZeroFeatures(wordFeatures)
-    # with st.spinner('Reducing dimensionality ...'):
-    #     finalFeatures = dimensionalityReduction(wordFeaturesWithZeros)
-    # with st.spinner('Predicting categories ...'):
-    #     knn = loadKnnModel()
-    #     predictedCategories = knn.predict(finalFeatures)
-    # with st.spinner('Finishing touches ...'):
-    #     le = loadLabelEncoder()
-    #     df['Industry Category'] = le.inverse_transform(predictedCategories)
-    #     df['Industry Category'] = pd.Categorical(df['Industry Category'])
-    #     df.drop(columns = ['cleanedResume'], inplace = True)
-    # endTime = time.time()
-    # elapsedSeconds = endTime - startTime
-    # elapsedTime = datetime.timedelta(seconds = elapsedSeconds)
-    # hours, remainder = divmod(elapsedTime.seconds, 3600)
-    # minutes, seconds = divmod(remainder, 60)
-    # elapsedTimeStr = f"{hours} hr {minutes} min {seconds} sec"
-    # st.info(f'Finished in {elapsedTimeStr}')
-    # return df 
 
     # NO LOADING WIDGET
     # startTime = time.time()
@@ -560,34 +533,37 @@ def writeGettingStarted():
         """)
     with st.expander('Classification Steps'):
         st.write("""
-        ##### Upload Resumes:
+        ##### Upload Resumes & Start Processing:
         - Navigate to the "Classify" tab.
         - Click the "Upload Resumes" button.
         - Select the Excel file (.xlsx) containing the resumes you want to classify. Ensure that your Excel file has the "Resume" column with the resume text and any necessary columns for filtering or additional information.
-        ######
-        """)
-        st.write("""
-        ##### Start Processing:
         - Click the "Start Processing" button.
         - The app will analyze the resumes and categorize them into job industry categories.
         ######
         """)
+        imgClf1 = Image.open('clf-1.png')
+        st.image(imgClf1, use_column_width = True, output_format = "PNG")
         st.write("""
-        ##### View Classification Results:
+        ##### View Bar Chart:
         - A bar chart will appear, showing the number of resumes per category, helping you visualize the distribution.
-        - Below the bar chart, there is a dataframe that displays the list of resumes along with their assigned categories.
         ######
         """)
+        imgClf2 = Image.open('clf-2.png')
+        st.image(imgClf2, use_column_width = True, output_format = "PNG")
         st.write("""
         ##### Add Filters:
         - You can apply filters to the dataframe to narrow down your results.
         ######
         """)
+        imgClf3 = Image.open('clf-3.png')
+        st.image(imgClf3, use_column_width = True, output_format = "PNG")
         st.write("""
         ##### Donwload Results:
         - Once you've applied filters or are satisfied with the results, you can download the current dataframe as an Excel file by clicking the "Save Current Output as XLSX" button.
         ####
         """)
+        imgClf4 = Image.open('clf-4.png')
+        st.image(imgClf4, use_column_width = True, output_format = "PNG")
     st.write("""
     #### Rank Tab:
     The web app will rank the resumes based on their semantic similarity to the job description. 
@@ -602,35 +578,35 @@ def writeGettingStarted():
     """)
     with st.expander('Ranking Steps'):
         st.write("""
-        ##### Upload Job Description and Resumes:
+        ##### Upload Files & Start Processing:
         - Navigate to the "Rank" tab.
         - Upload the job description as a text file. This file should contain the description of the job you want to compare resumes against.
         - Upload the Excel file that contains the resumes you want to rank.
-        ######
-        """)
-        st.write("""
-        ##### Start Processing:
         - Click the "Start Processing" button.
         - The app will analyze the job description and rank the resumes based on their similarity to the job description.
         ######
         """)
+        imgRnk1 = Image.open('rnk-1.png')
+        st.image(imgRnk1, use_column_width = True, output_format = "PNG")
         st.write("""
-        ##### View Classification Results:
-        - The output will display the contents of the job description.
-        - Below the job description, there is a dataframe that lists the ranked resumes along with their similarity scores.
+        ##### View Job Description:
+        - The output will display the contents of the job description for reference.
         ######
         """)
+        imgRnk2 = Image.open('rnk-2.png')
+        st.image(imgRnk2, use_column_width = True, output_format = "PNG")
         st.write("""
         ##### Add Filters:
         - You can apply filters to the dataframe to narrow down your results.
         ######
         """)
+        imgRnk3 = Image.open('rnk-3.png')
+        st.image(imgRnk3, use_column_width = True, output_format = "PNG")
         st.write("""
         ##### Donwload Results:
         - Once you've applied filters or are satisfied with the results, you can download the current dataframe as an Excel file by clicking the "Save Current Output as XLSX" button.
         ####
         """)
-    # TODO: add sample resume dataframe format
-    # TODO: add picture per step
-    # TODO: add file links
+        imgRnk4 = Image.open('rnk-4.png')
+        st.image(imgRnk4, use_column_width = True, output_format = "PNG")
 
