@@ -13,17 +13,15 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.neighbors import KNeighborsClassifier, NeighborhoodComponentsAnalysis
 from sklearn.preprocessing import LabelEncoder
 
-file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/dataset_hr_edited.csv'
-# file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/dataset_hr_edited_2.csv'
-# file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/Raw_Resume.csv'
-# file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/kaggle-KNN-2482.csv'
+# file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/dataset_hr_edited.csv'
+file_path = '~/Projects/hau/csstudy/resume-screening-and-classification/knn-trial/datasets/Labeled_LiveCareer_Resumes_1076.xlsx'
 
-resumeDataSet = pd.read_csv(file_path)
+resumeDataSet = pd.read_excel(file_path)
 
 stop_words = set(stopwords.words('english'))
 stemmer = PorterStemmer()
 
-print (resumeDataSet['Category'].value_counts())
+print(resumeDataSet['Actual Category'].value_counts())
 
 def cleanResume(resumeText):
     resumeText = re.sub('http\S+\s*', ' ', resumeText)  # remove URLs
@@ -43,12 +41,12 @@ def cleanResume(resumeText):
 resumeDataSet['cleaned_resume'] = resumeDataSet.Resume.apply(lambda x: cleanResume(x))
 
 le = LabelEncoder()
-resumeDataSet['Category'] = le.fit_transform(resumeDataSet['Category'])
+resumeDataSet['Actual Category'] = le.fit_transform(resumeDataSet['Actual Category'])
 le_filename = f'label_encoder.joblib'
 joblib.dump(le, le_filename)
 
 requiredText = resumeDataSet['cleaned_resume'].values
-requiredTarget = resumeDataSet['Category'].values
+requiredTarget = resumeDataSet['Actual Category'].values
 
 word_vectorizer = TfidfVectorizer(
     stop_words='english',
@@ -60,6 +58,7 @@ word_vectorizer.fit(requiredText)
 joblib.dump(word_vectorizer, 'tfidf_vectorizer.joblib')
 WordFeatures = word_vectorizer.transform(requiredText)
 
+# WordFeatures = WordFeatures.toarray()
 nca = NeighborhoodComponentsAnalysis(n_components=300, random_state=42)
 WordFeatures = nca.fit_transform(WordFeatures.toarray(), requiredTarget)
 nca_filename = f'nca_model.joblib'
@@ -71,12 +70,17 @@ print(X_test.shape)
 
 # n_neighbors_values = [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 63, 65, 67, 69, 71, 73, 75, 77, 79, 81, 83, 85, 87, 89, 91, 93, 95, 97, 99]
 # weights = ["uniform", "distance"]
-# metric = ["euclidean", "manhattan", "minkowski", "cosine"]
-# algorithm = ['ball_tree', 'kd_tree', 'brute', 'auto']
+# metric = ["euclidean", "manhattan", "minkowski", "cosine"] 
+# algorithm = ['ball_tree', 'kd_tree', 'brute']
 # param_grid = dict(n_neighbors=n_neighbors_values, weights=weights, metric=metric, algorithm=algorithm)
 # knn = KNeighborsClassifier()
 # gs = GridSearchCV(estimator=knn, param_grid=param_grid, scoring="accuracy", verbose=1, cv=10, n_jobs=3)
 # grid_search = gs.fit(X_train, y_train)
+# results_df = pd.DataFrame(grid_search.cv_results_)
+# # results_df.to_excel('grid_search_results_with_nca_500.xlsx', index=False)
+# # results_df.to_excel('grid_search_results_with_nca_400.xlsx', index=False)
+# # results_df.to_excel('grid_search_results_with_nca_300.xlsx', index=False)
+# # results_df.to_excel('grid_search_results_no_nca.xlsx', index=False)
 # best_score = grid_search.best_score_
 # best_parameters = grid_search.best_params_
 # print("Best Score:", best_score)
@@ -85,12 +89,14 @@ print(X_test.shape)
 knn = KNeighborsClassifier(n_neighbors=1, 
                            metric='manhattan',
                            weights='uniform',
-                           algorithm='ball_tree',
+                           # algorithm='ball_tree',
+                           algorithm='kd_tree',
+                           # algorithm='brute',
                            )
 knn.fit(X_train, y_train)
 
 knnModel_filename = f'knn_model.joblib'
-# joblib.dump(knn, knnModel_filename)
+joblib.dump(knn, knnModel_filename)
 
 prediction = knn.predict(X_test)
 print('Accuracy of KNeighbors Classifier on training set: {:.2f}'.format(knn.score(X_train, y_train)))

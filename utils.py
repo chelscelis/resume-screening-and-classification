@@ -36,9 +36,15 @@ def addZeroFeatures(matrix):
         matrix = hstack([matrix, zeroFeatures])
     return matrix
 
+from sklearn import metrics
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
+import seaborn as sns
 @st.cache_data(max_entries = 1, show_spinner = False)
 def classifyResumes(df):
     # WITH PROGRESS BAR
+    # for x in range(1,11):
     progressBar = st.progress(0)
     progressBar.progress(0, text = "Preprocessing data ...")
     startTime = time.time()
@@ -68,6 +74,23 @@ def classifyResumes(df):
     time.sleep(1)
     progressBar.empty()
     st.info(f'Finished classifying {len(resumeText)} resumes - {elapsedTimeStr}')
+    # actual = df['Actual Category'].values
+    # predicted = df['Industry Category'].values
+    # print('Accuracy of KNeighbors Classifier: {:.2f}'.format(knn.score(actual, predicted)))
+    # print(f"\n Classification report (LinkedIn Set 55 Resumes) for classifier %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
+    # print(f"\n Classification report (LiveCareer Test Set 216 Resumes) for classifier %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
+    # print(f"\n Classification report #{x} (LinkedIn Set 55 Resumes) for classifier %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
+    # print(f"\n Classification report #{x} (LiveCareer Test Set 216 Resumes) for classifier %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
+    # confusion_matrix = metrics.confusion_matrix(actual, predicted)
+    # plt.figure(figsize=(10, 10))
+    # sns.heatmap(confusion_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=le.classes_, yticklabels=le.classes_)
+    # plt.xlabel('Predicted')
+    # plt.ylabel('True')
+    # plt.title(f'Confusion Matrix (LinkedIn Set 55 Resumes)')
+    # plt.title(f'Confusion Matrix (LiveCareer Test Set 216 Resumes)')
+    # plt.title(f'Confusion Matrix #{x} (LinkedIn Set 55 Resumes)')
+    # plt.title(f'Confusion Matrix #{x} (LiveCareer Test Set 216 Resumes)')
+    # plt.show()
     return df 
 
     # NO LOADING WIDGET
@@ -256,7 +279,9 @@ def performLemmatization(text):
         lemmatizer.lemmatize(word.lower(), pos = getWordnetPos(pos)) 
         for word, pos in pos_tag(words) if word.lower() not in stop_words
     ]
+    # text = ' '.join(words)
     return words
+    # return text
 
 def performStemming(text):
     text = re.sub('http\S+\s*', ' ', text)
@@ -278,8 +303,8 @@ def loadModel():
 
     # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/wiki-news-300d-1M.vec'
     model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/wiki-news-300d-1M-subword.vec'
-    # model = KeyedVectors.load_word2vec_format(model_path)
-    model = KeyedVectors.load_word2vec_format(model_path, limit = 100000)
+    model = KeyedVectors.load_word2vec_format(model_path)
+    # model = KeyedVectors.load_word2vec_format(model_path, limit = 300000)
 
     # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/word2vec.bin'
     # model = KeyedVectors.load_word2vec_format(model_path, binary=True)
@@ -290,48 +315,59 @@ def loadModel():
 
 model = loadModel()
 
-@st.cache_data(max_entries = 1, show_spinner = False)
-def rankResumes(text, df):
-    # WITH PROGRESS BAR
-    progressBar = st.progress(0)
-    progressBar.progress(0, text = "Preprocessing data ...")
-    startTime = time.time()
-    jobDescriptionText = performLemmatization(text)
-    df['cleanedResume'] = df['Resume'].apply(lambda x: performLemmatization(x))
-    documents = [jobDescriptionText] + df['cleanedResume'].tolist()
-    progressBar.progress(13, text = "Creating a dictionary ...")
-    dictionary = Dictionary(documents)
-    progressBar.progress(25, text = "Creating a TF-IDF model ...")
-    tfidf = TfidfModel(dictionary = dictionary)
-    progressBar.progress(38, text = "Creating a Similarity Index...")
-    similarityIndex = WordEmbeddingSimilarityIndex(model)
-    progressBar.progress(50, text = "Creating a Similarity Matrix...")
-    similarityMatrix = SparseTermSimilarityMatrix(similarityIndex, dictionary, tfidf)
-    progressBar.progress(63, text = "Setting up job description as the query ...")
-    query = tfidf[dictionary.doc2bow(jobDescriptionText)]
-    progressBar.progress(75, text = "Calculating semantic similarities ...")
-    index = SoftCosineSimilarity(
-        tfidf[[dictionary.doc2bow(resume) for resume in df['cleanedResume']]],
-        similarityMatrix 
-    )
-    similarities = index[query]
-    progressBar.progress(88, text = "Finishing touches ...")
-    df['Similarity Score'] = similarities
-    df['Rank'] = df['Similarity Score'].rank(ascending=False, method='dense').astype(int)
-    df.sort_values(by='Rank', inplace=True)
-    df.drop(columns = ['cleanedResume'], inplace = True)
-    endTime = time.time()
-    elapsedSeconds = endTime - startTime
-    hours, remainder = divmod(int(elapsedSeconds), 3600)
-    minutes, _ = divmod(remainder, 60)
-    secondsWithDecimals = '{:.2f}'.format(elapsedSeconds % 60)
-    elapsedTimeStr = f'{hours} h : {minutes} m : {secondsWithDecimals} s'
-    progressBar.progress(100, text = f'Classification Complete!')
-    time.sleep(1)
-    progressBar.empty()
-    st.info(f'Finished ranking {len(df)} resumes - {elapsedTimeStr}')
-    return df 
-    
+# from gensim.similarities.index import AnnoyIndexer
+from gensim.similarities.annoy import AnnoyIndexer
+from sklearn.neighbors import NearestNeighbors
+# @st.cache_data(max_entries = 1, show_spinner = False)
+# def rankResumes(text, df):
+#     # WITH PROGRESS BAR
+#     progressBar = st.progress(0)
+#     progressBar.progress(0, text = "Preprocessing data ...")
+#     startTime = time.time()
+#     jobDescriptionText = performLemmatization(text)
+#     df['cleanedResume'] = df['Resume'].apply(lambda x: performLemmatization(x))
+#     documents = [jobDescriptionText] + df['cleanedResume'].tolist()
+#     # documents = df['cleanedResume'].tolist()
+#     progressBar.progress(13, text = "Creating a dictionary ...")
+#     dictionary = Dictionary(documents)
+#     progressBar.progress(25, text = "Creating a TF-IDF model ...")
+#     tfidf = TfidfModel(dictionary = dictionary)
+#     progressBar.progress(38, text = "Creating a Similarity Index...")
+#
+#     words = [word for word, count in dictionary.most_common()]
+#     wordVectors = model.vectors_for_all(words, allow_inference=False)
+#     indexer = AnnoyIndexer(wordVectors, num_trees=300) 
+#     similarityIndex = WordEmbeddingSimilarityIndex(wordVectors, kwargs={'indexer': indexer})
+#
+#     # similarityIndex = WordEmbeddingSimilarityIndex(model)
+#
+#     progressBar.progress(50, text = "Creating a Similarity Matrix...")
+#     similarityMatrix = SparseTermSimilarityMatrix(similarityIndex, dictionary, tfidf)
+#     progressBar.progress(63, text = "Setting up job description as the query ...")
+#     query = tfidf[dictionary.doc2bow(jobDescriptionText)]
+#     progressBar.progress(75, text = "Calculating semantic similarities ...")
+#     index = SoftCosineSimilarity(
+#         tfidf[[dictionary.doc2bow(resume) for resume in df['cleanedResume']]],
+#         similarityMatrix 
+#     )
+#     similarities = index[query]
+#     progressBar.progress(88, text = "Finishing touches ...")
+#     df['Similarity Score'] = similarities
+#     df['Rank'] = df['Similarity Score'].rank(ascending=False, method='dense').astype(int)
+#     df.sort_values(by='Rank', inplace=True)
+#     df.drop(columns = ['cleanedResume'], inplace = True)
+#     endTime = time.time()
+#     elapsedSeconds = endTime - startTime
+#     hours, remainder = divmod(int(elapsedSeconds), 3600)
+#     minutes, _ = divmod(remainder, 60)
+#     secondsWithDecimals = '{:.2f}'.format(elapsedSeconds % 60)
+#     elapsedTimeStr = f'{hours} h : {minutes} m : {secondsWithDecimals} s'
+#     progressBar.progress(100, text = f'Classification Complete!')
+#     time.sleep(1)
+#     progressBar.empty()
+#     st.info(f'Finished ranking {len(df)} resumes - {elapsedTimeStr}')
+#     return df 
+
     # NO LOADING WIDGET
     # startTime = time.time()
     # jobDescriptionText = performLemmatization(text)
@@ -387,34 +423,35 @@ def rankResumes(text, df):
 #     return resumeRnk
 
 # 1 BY 1 SOFT COSSIM
-# def resumesRank(jobDescriptionRnk, resumeRnk):
-#     jobDescriptionText = preprocessing2(jobDescriptionRnk)
-#     resumeRnk['cleanedResume'] = resumeRnk['Resume'].apply(lambda x: preprocessing2(x))
-#     similarityscore = []
-#     for resume in resumeRnk['cleanedResume']:
-#         documents = [jobDescriptionText, resume] 
-#         dictionary = Dictionary(documents)
-#         documentBow = [dictionary.doc2bow(doc) for doc in documents]
-#         tfidf = TfidfModel(documentBow, dictionary=dictionary)
-#         similarityIndex = WordEmbeddingSimilarityIndex(model)
-#         similarityMatrix = SparseTermSimilarityMatrix(similarityIndex, dictionary, tfidf)
-#         # similarityMatrix = SparseTermSimilarityMatrix(similarityIndex, dictionary)
-#         value = tfidf[dictionary.doc2bow(resume)]
-#         # value = dictionary.doc2bow(jobDescriptionText)
-#         index = SoftCosineSimilarity(
-#             # tfidf[[dictionary.doc2bow(resume)]], 
-#             tfidf[[dictionary.doc2bow(jobDescriptionText)]], 
-#             # [dictionary.doc2bow(resume) for resume in resumeRnk['cleanedResume']],
-#             similarityMatrix, 
-#         )
-#         similarities = index[value]
-#         similarityscore.append(similarities)
-#     print(similarityscore)
-#     resumeRnk['Similarity Score'] = similarityscore 
-#     resumeRnk.sort_values(by='Similarity Score', ascending=False, inplace=True)
-#     resumeRnk.drop(columns=['cleanedResume'], inplace=True)
-#     return resumeRnk
-#
+def rankResumes(jobDescriptionRnk, resumeRnk):
+    jobDescriptionText = performLemmatization(jobDescriptionRnk)
+    resumeRnk['cleanedResume'] = resumeRnk['Resume'].apply(lambda x: performLemmatization(x))
+    similarityscore = []
+    for resume in resumeRnk['cleanedResume']:
+        documents = [jobDescriptionText, resume] 
+        dictionary = Dictionary(documents)
+        tfidf = TfidfModel(dictionary=dictionary)
+        words = [word for word, count in dictionary.most_common()]
+        wordVectors = model.vectors_for_all(words, allow_inference=False)
+        indexer = AnnoyIndexer(wordVectors, num_trees=300) 
+        similarityIndex = WordEmbeddingSimilarityIndex(wordVectors, kwargs={'indexer': indexer})
+        similarityMatrix = SparseTermSimilarityMatrix(similarityIndex, dictionary, tfidf)
+        # value = tfidf[dictionary.doc2bow(resume)]
+        query = dictionary.doc2bow(jobDescriptionText)
+        index = SoftCosineSimilarity(
+            tfidf[[dictionary.doc2bow(resume)]], 
+            # tfidf[[dictionary.doc2bow(jobDescriptionText)]], 
+            # [dictionary.doc2bow(resume) for resume in resumeRnk['cleanedResume']],
+            similarityMatrix, 
+        )
+        similarities = index[query]
+        similarityscore.append(similarities)
+    resumeRnk['Similarity Score'] = similarityscore 
+    resumeRnk['Rank'] = resumeRnk['Similarity Score'].rank(ascending=False, method='dense').astype(int)
+    resumeRnk.sort_values(by='Rank', inplace=True)
+    resumeRnk.drop(columns = ['cleanedResume'], inplace = True)
+    return resumeRnk 
+
 # TF-IDF SCORE + WORD EMBEDDINGS SCORE
 # def resumesRank(jobDescriptionRnk, resumeRnk):
 #     def get_word_embedding(text):
