@@ -59,14 +59,33 @@ with tab2:
         st.divider()
         st.header('Output')
         resumeClf = pd.read_excel(uploadedResumeClf)
-        resumeClf = classifyResumes(resumeClf)
-        with st.expander('View Bar Chart'):
-            barChart = createBarChart(resumeClf)
-            st.altair_chart(barChart, use_container_width = True)
-        currentClf = filterDataframeClf(resumeClf)
-        st.dataframe(currentClf, use_container_width = True, hide_index = True)
-        xlsxClf = convertDfToXlsx(currentClf)
-        st.download_button(label='Save Current Output as XLSX', data = xlsxClf, file_name = 'Resumes_categorized.xlsx')
+        resumeColumnsClf = [col for col in resumeClf.columns if col == "Resume"]
+
+        if len(resumeColumnsClf) == 1:
+            resumeClf = classifyResumes(resumeClf)
+            with st.expander('View Bar Chart'):
+                barChart = createBarChart(resumeClf)
+                st.altair_chart(barChart, use_container_width = True)
+            currentClf = filterDataframeClf(resumeClf)
+            st.dataframe(currentClf, use_container_width = True, hide_index = True)
+            xlsxClf = convertDfToXlsx(currentClf)
+            st.download_button(label='Save Current Output as XLSX', data = xlsxClf, file_name = 'Resumes_categorized.xlsx')
+        elif len(resumeColumnsClf) > 1:
+            st.error("""
+            #### Oops! Something went wrong.
+
+            Multiple "Resume" columns found in the uploaded excel file.
+
+            Kindly specify which one to use by removing the duplicates :)
+            """)
+        else:
+            st.error("""
+            #### Oops! Something went wrong.
+
+            The "Resume" column is not found in the uploaded excel file.
+
+            Kindly make sure the column is present :)
+            """)
 
 with tab3:
     st.header('Input')
@@ -89,11 +108,30 @@ with tab3:
         st.header('Output')
         jobDescriptionRnk = uploadedJobDescriptionRnk.read().decode('utf-8')
         resumeRnk = pd.read_excel(uploadedResumeRnk)
-        resumeRnk = rankResumes(jobDescriptionRnk, resumeRnk)
-        with st.expander('View Job Description'):
-            st.write(jobDescriptionRnk)
-        currentRnk = filterDataframeRnk(resumeRnk)
-        st.dataframe(currentRnk, use_container_width = True, hide_index = True)
-        xlsxRnk = convertDfToXlsx(currentRnk)
-        st.download_button(label='Save Current Output as XLSX', data = xlsxRnk, file_name = 'Resumes_ranked.xlsx')
+        resumeColumnsRnk = [col for col in resumeRnk.columns if col == "Resume"]
+
+        if len(resumeColumnsRnk) == 1:
+            resumeRnk = rankResumes(jobDescriptionRnk, resumeRnk)
+            with st.expander('View Job Description'):
+                st.write(jobDescriptionRnk)
+            currentRnk = filterDataframeRnk(resumeRnk)
+            st.dataframe(currentRnk, use_container_width = True, hide_index = True)
+            xlsxRnk = convertDfToXlsx(currentRnk)
+            st.download_button(label='Save Current Output as XLSX', data = xlsxRnk, file_name = 'Resumes_ranked.xlsx')
+        elif len(resumeColumnsRnk) > 1:
+            st.error("""
+            #### Oops! Something went wrong.
+
+            Multiple "Resume" columns found in the uploaded excel file.
+
+            Kindly specify which one to use by removing the duplicates :)
+            """)
+        else:
+            st.error("""
+            #### Oops! Something went wrong.
+
+            The "Resume" column is not found in the uploaded excel file.
+
+            Kindly make sure the column is present :)
+            """)
 
