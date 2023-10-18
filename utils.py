@@ -543,6 +543,11 @@ def writeGettingStarted():
     The organization of columns is up to you but ensure that the "Resume" column is present.
     The values under this column should include all the relevant details for each resume.
     """)
+    st.info("""
+    ##### NOTE:
+    - If the "Resume" column is not present, the classification/ranking process will not be executed.
+    - If there are multiple "Resume" columns, the first occurrence will be taken into account while the remaining duplicates are given a different column name.
+    """)
     st.divider()
     st.write("""
     ## Demo Walkthrough

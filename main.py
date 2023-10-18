@@ -40,6 +40,7 @@ tab1, tab2, tab3 = st.tabs(['Getting Started', 'Classify', 'Rank'])
 with tab1:
     writeGettingStarted()
 
+from collections import Counter
 with tab2:
     st.header('Input')
     uploadedResumeClf = st.file_uploader('Upload Resumes', type = 'xlsx', key = 'upload-resume-clf')
@@ -59,9 +60,19 @@ with tab2:
         st.divider()
         st.header('Output')
         resumeClf = pd.read_excel(uploadedResumeClf)
-        resumeColumnsClf = [col for col in resumeClf.columns if col == "Resume"]
+        duplicate_columns = [col for col in resumeClf.columns if resumeClf.columns.duplicated(keep=False).any()]
+        for col in duplicate_columns:
+            resumeClf.rename(columns={col: 'Resume'}, inplace=True)
+        # resumeColumnsClf = [col for col in resumeClf.columns if col == "Resume"]
+        columnNames = resumeClf.columns
+        columnCounts = Counter(columnNames)
+        resumeColumnsClf = [column for column, count in columnCounts.items() if count > 1]
+        print(columnCounts)
+        print(resumeClf)
 
-        if len(resumeColumnsClf) == 1:
+        # if len(resumeColumnsClf) == 1:
+        # if resumeColumnsClf == 1:
+        if len(resumeColumnsClf) > 0:
             resumeClf = classifyResumes(resumeClf)
             with st.expander('View Bar Chart'):
                 barChart = createBarChart(resumeClf)
@@ -71,6 +82,7 @@ with tab2:
             xlsxClf = convertDfToXlsx(currentClf)
             st.download_button(label='Save Current Output as XLSX', data = xlsxClf, file_name = 'Resumes_categorized.xlsx')
         elif len(resumeColumnsClf) > 1:
+        # elif resumeColumnsClf > 1:
             st.error("""
             #### Oops! Something went wrong.
 
