@@ -68,46 +68,59 @@ X_train,X_test,y_train,y_test = train_test_split(WordFeatures,requiredTarget,ran
 print(X_train.shape)
 print(X_test.shape)
 
-# n_neighbors_values = [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 53, 55, 57, 59, 61, 63, 65, 67, 69, 71, 73, 75, 77, 79, 81, 83, 85, 87, 89, 91, 93, 95, 97, 99]
+n_neighbors_values = [
+    1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 39, 41, 43, 45, 47, 49, 51, 
+    53, 55, 57, 59, 61, 63, 65, 67, 69, 71, 73, 75, 77, 79, 81, 83, 85, 87, 89, 91, 93, 95, 97, 99]
+weights = ["uniform", "distance"]
+metric = ["euclidean", "manhattan", "minkowski", "cosine"] 
+algorithm = ['ball_tree', 'kd_tree', 'brute']
+
+# Shorlisted Parameter Values
+# n_neighbors_values = [1]
 # weights = ["uniform", "distance"]
-# metric = ["euclidean", "manhattan", "minkowski", "cosine"] 
+# metric = ["manhattan"]
 # algorithm = ['ball_tree', 'kd_tree', 'brute']
-# param_grid = dict(n_neighbors=n_neighbors_values, weights=weights, metric=metric, algorithm=algorithm)
-# knn = KNeighborsClassifier()
-# gs = GridSearchCV(estimator=knn, param_grid=param_grid, scoring="accuracy", verbose=1, cv=10, n_jobs=3)
-# grid_search = gs.fit(X_train, y_train)
-# results_df = pd.DataFrame(grid_search.cv_results_)
-# # results_df.to_excel('grid_search_results_with_nca_500.xlsx', index=False)
-# # results_df.to_excel('grid_search_results_with_nca_400.xlsx', index=False)
-# # results_df.to_excel('grid_search_results_with_nca_300.xlsx', index=False)
-# # results_df.to_excel('grid_search_results_no_nca.xlsx', index=False)
-# best_score = grid_search.best_score_
-# best_parameters = grid_search.best_params_
-# print("Best Score:", best_score)
-# print("Best Parameters:", best_parameters)
+
+param_grid = dict(n_neighbors=n_neighbors_values, weights=weights, metric=metric, algorithm=algorithm)
+knn = KNeighborsClassifier()
+gs = GridSearchCV(estimator=knn, param_grid=param_grid, scoring="accuracy", verbose=1, cv=10, n_jobs=3)
+grid_search = gs.fit(X_train, y_train)
+results_df = pd.DataFrame(grid_search.cv_results_)
+results_df.to_excel('grid_search_results_with_nca_300_and_top_hyperparameters.xlsx', index=False)
+# results_df.to_excel('grid_search_results_with_nca_500.xlsx', index=False)
+# results_df.to_excel('grid_search_results_with_nca_400.xlsx', index=False)
+# results_df.to_excel('grid_search_results_with_nca_300.xlsx', index=False)
+# results_df.to_excel('grid_search_results_no_nca.xlsx', index=False)
+best_score = grid_search.best_score_
+best_parameters = grid_search.best_params_
+print("Best Score:", best_score)
+print("Best Parameters:", best_parameters)
 
 knn = KNeighborsClassifier(n_neighbors=1, 
                            metric='manhattan',
                            weights='uniform',
                            # algorithm='ball_tree',
-                           algorithm='kd_tree',
-                           # algorithm='brute',
+                           # algorithm='kd_tree',
+                           algorithm='brute',
                            )
 knn.fit(X_train, y_train)
 
 knnModel_filename = f'knn_model.joblib'
 joblib.dump(knn, knnModel_filename)
 
-prediction = knn.predict(X_test)
-print('Accuracy of KNeighbors Classifier on training set: {:.2f}'.format(knn.score(X_train, y_train)))
-print('Accuracy of KNeighbors Classifier on test set: {:.2f}'.format(knn.score(X_test, y_test)))
-print("\n Classification report for classifier %s:\n%s\n" % (knn, metrics.classification_report(y_test, prediction)))
-
-confusion_matrix = metrics.confusion_matrix(y_test, prediction)
-
-plt.figure(figsize=(10, 10))
-sns.heatmap(confusion_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=le.classes_, yticklabels=le.classes_)
-plt.xlabel('Predicted')
-plt.ylabel('True')
-plt.title('Confusion Matrix')
-plt.show()
+# prediction = knn.predict(X_test)
+# print('Accuracy of KNeighbors Classifier on training set: {:.2f}'.format(knn.score(X_train, y_train)))
+# print('Accuracy of KNeighbors Classifier on test set: {:.2f}'.format(knn.score(X_test, y_test)))
+# print("\n Classification report for classifier %s:\n%s\n" % (knn, metrics.classification_report(y_test, prediction)))
+#
+# confusion_matrix = metrics.confusion_matrix(y_test, prediction)
+#
+# plt.figure(figsize=(10, 10))
+# sns.heatmap(confusion_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=le.classes_, yticklabels=le.classes_)
+# plt.xlabel('Predicted')
+# plt.ylabel('True')
+# plt.title('Confusion Matrix')
+# plt.show()
+#
+# print(X_test)
+# print(y_test)

@@ -60,44 +60,14 @@ with tab2:
         st.divider()
         st.header('Output')
         resumeClf = pd.read_excel(uploadedResumeClf)
-        duplicate_columns = [col for col in resumeClf.columns if resumeClf.columns.duplicated(keep=False).any()]
-        for col in duplicate_columns:
-            resumeClf.rename(columns={col: 'Resume'}, inplace=True)
-        # resumeColumnsClf = [col for col in resumeClf.columns if col == "Resume"]
-        columnNames = resumeClf.columns
-        columnCounts = Counter(columnNames)
-        resumeColumnsClf = [column for column, count in columnCounts.items() if count > 1]
-        print(columnCounts)
-        print(resumeClf)
-
-        # if len(resumeColumnsClf) == 1:
-        # if resumeColumnsClf == 1:
-        if len(resumeColumnsClf) > 0:
-            resumeClf = classifyResumes(resumeClf)
-            with st.expander('View Bar Chart'):
-                barChart = createBarChart(resumeClf)
-                st.altair_chart(barChart, use_container_width = True)
-            currentClf = filterDataframeClf(resumeClf)
-            st.dataframe(currentClf, use_container_width = True, hide_index = True)
-            xlsxClf = convertDfToXlsx(currentClf)
-            st.download_button(label='Save Current Output as XLSX', data = xlsxClf, file_name = 'Resumes_categorized.xlsx')
-        elif len(resumeColumnsClf) > 1:
-        # elif resumeColumnsClf > 1:
-            st.error("""
-            #### Oops! Something went wrong.
-
-            Multiple "Resume" columns found in the uploaded excel file.
-
-            Kindly specify which one to use by removing the duplicates :)
-            """)
-        else:
-            st.error("""
-            #### Oops! Something went wrong.
-
-            The "Resume" column is not found in the uploaded excel file.
-
-            Kindly make sure the column is present :)
-            """)
+        resumeClf = classifyResumes(resumeClf)
+        with st.expander('View Bar Chart'):
+            barChart = createBarChart(resumeClf)
+            st.altair_chart(barChart, use_container_width = True)
+        currentClf = filterDataframeClf(resumeClf)
+        st.dataframe(currentClf, use_container_width = True, hide_index = True)
+        xlsxClf = convertDfToXlsx(currentClf)
+        st.download_button(label='Save Current Output as XLSX', data = xlsxClf, file_name = 'Resumes_categorized.xlsx')
 
 with tab3:
     st.header('Input')

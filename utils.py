@@ -61,8 +61,10 @@ def classifyResumes(df):
     predictedCategories = knn.predict(finalFeatures)
     progressBar.progress(80, text = "Finishing touches ...")
     le = loadLabelEncoder()
+    # df['Industry Category'] = predictedCategories
+    print(predictedCategories)
     df['Industry Category'] = le.inverse_transform(predictedCategories)
-    df['Industry Category'] = pd.Categorical(df['Industry Category'])
+    # df['Industry Category'] = pd.Categorical(df['Industry Category'])
     df.drop(columns = ['cleanedResume'], inplace = True)
     endTime = time.time()
     elapsedSeconds = endTime - startTime
@@ -74,23 +76,49 @@ def classifyResumes(df):
     time.sleep(1)
     progressBar.empty()
     st.info(f'Finished classifying {len(resumeText)} resumes - {elapsedTimeStr}')
-    # actual = df['Actual Category'].values
-    # predicted = df['Industry Category'].values
-    # print('Accuracy of KNeighbors Classifier: {:.2f}'.format(knn.score(actual, predicted)))
-    # print(f"\n Classification report (LinkedIn Set 55 Resumes) for classifier %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
-    # print(f"\n Classification report (LiveCareer Test Set 216 Resumes) for classifier %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
-    # print(f"\n Classification report #{x} (LinkedIn Set 55 Resumes) for classifier %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
-    # print(f"\n Classification report #{x} (LiveCareer Test Set 216 Resumes) for classifier %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
-    # confusion_matrix = metrics.confusion_matrix(actual, predicted)
-    # plt.figure(figsize=(10, 10))
+
+    actual = df['Actual Category'].values
+    predicted = df['Industry Category'].values
+
+    # print(f"\n Classification report of Model 1 (LinkedIn Set 55 Resumes) %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
+    # print(f"\n Classification report of Model 2 (LinkedIn Set 55 Resumes) %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
+    # print(f"\n Classification report of Model 3 (LinkedIn Set 55 Resumes) %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
+
+    # print(f"\n Classification report of Model 1 (LiveCareer Test Set 216 Resumes) %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
+    # print(f"\n Classification report of Model 2 (LiveCareer Test Set 216 Resumes) %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
+    # print(f"\n Classification report of Model 3 (LiveCareer Test Set 216 Resumes) %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
+
+    # print(f"\n Classification report of Model 1 (Non-ideal Set 10 Resumes) %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
+    # print(f"\n Classification report of Model 2 (Non-ideal Set 10 Resumes) %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
+    print(f"\n Classification report of Model 3 (Non-ideal Set 10 Resumes) %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
+
+    confusion_matrix = metrics.confusion_matrix(actual, predicted)
+    plt.figure(figsize=(10, 10))
+
+    actual = df['Actual Category'].tolist()
+    predicted = df['Industry Category'].tolist()
+    combination = actual + predicted
+    print(combination)
+    unique_values = list(set(combination))
+    unique_values.sort()
     # sns.heatmap(confusion_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=le.classes_, yticklabels=le.classes_)
-    # plt.xlabel('Predicted')
-    # plt.ylabel('True')
-    # plt.title(f'Confusion Matrix (LinkedIn Set 55 Resumes)')
-    # plt.title(f'Confusion Matrix (LiveCareer Test Set 216 Resumes)')
-    # plt.title(f'Confusion Matrix #{x} (LinkedIn Set 55 Resumes)')
-    # plt.title(f'Confusion Matrix #{x} (LiveCareer Test Set 216 Resumes)')
-    # plt.show()
+    sns.heatmap(confusion_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=unique_values, yticklabels=unique_values)
+    plt.xlabel('Predicted')
+    plt.ylabel('True')
+
+    # plt.title(f'Confusion Matrix of Model 1(LinkedIn Set 55 Resumes)')
+    # plt.title(f'Confusion Matrix of Model 2(LinkedIn Set 55 Resumes)')
+    # plt.title(f'Confusion Matrix of Model 3(LinkedIn Set 55 Resumes)')
+
+    # plt.title(f'Confusion Matrix of Model 1 (LiveCareer Test Set 216 Resumes)')
+    # plt.title(f'Confusion Matrix of Model 2 (LiveCareer Test Set 216 Resumes)')
+    # plt.title(f'Confusion Matrix of Model 3 (LiveCareer Test Set 216 Resumes)')
+
+    # plt.title(f'Confusion Matrix of Model 1 (Non-ideal Set 10 Resumes)')
+    # plt.title(f'Confusion Matrix of Model 2 (Non-ideal Set 10 Resumes)')
+    plt.title(f'Confusion Matrix of Model 3 (Non-ideal Set 10 Resumes)')
+
+    plt.show()
     return df 
 
     # NO LOADING WIDGET
@@ -296,24 +324,24 @@ def performStemming(text):
     text = ' '.join(words)
     return text 
 
-@st.cache_data
-def loadModel():
-    # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/GoogleNews-vectors-negative300.bin'
-    # model = KeyedVectors.load_word2vec_format(model_path, binary=True)
-
-    # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/wiki-news-300d-1M.vec'
-    model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/wiki-news-300d-1M-subword.vec'
-    model = KeyedVectors.load_word2vec_format(model_path)
-    # model = KeyedVectors.load_word2vec_format(model_path, limit = 300000)
-
-    # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/word2vec.bin'
-    # model = KeyedVectors.load_word2vec_format(model_path, binary=True)
-
-    # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/custom_word2vec.bin'
-    # model = KeyedVectors.load_word2vec_format(model_path, binary=True)
-    return model
-
-model = loadModel()
+# @st.cache_data
+# def loadModel():
+#     # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/GoogleNews-vectors-negative300.bin'
+#     # model = KeyedVectors.load_word2vec_format(model_path, binary=True)
+#
+#     # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/wiki-news-300d-1M.vec'
+#     model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/wiki-news-300d-1M-subword.vec'
+#     model = KeyedVectors.load_word2vec_format(model_path)
+#     # model = KeyedVectors.load_word2vec_format(model_path, limit = 300000)
+#
+#     # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/word2vec.bin'
+#     # model = KeyedVectors.load_word2vec_format(model_path, binary=True)
+#
+#     # model_path = '~/Projects/hau/csstudy/resume-screening-and-classification/custom_word2vec.bin'
+#     # model = KeyedVectors.load_word2vec_format(model_path, binary=True)
+#     return model
+#
+# model = loadModel()
 
 # from gensim.similarities.index import AnnoyIndexer
 from gensim.similarities.annoy import AnnoyIndexer
@@ -426,30 +454,30 @@ from sklearn.neighbors import NearestNeighbors
 def rankResumes(jobDescriptionRnk, resumeRnk):
     jobDescriptionText = performLemmatization(jobDescriptionRnk)
     resumeRnk['cleanedResume'] = resumeRnk['Resume'].apply(lambda x: performLemmatization(x))
-    similarityscore = []
-    for resume in resumeRnk['cleanedResume']:
-        documents = [jobDescriptionText, resume] 
-        dictionary = Dictionary(documents)
-        tfidf = TfidfModel(dictionary=dictionary)
-        words = [word for word, count in dictionary.most_common()]
-        wordVectors = model.vectors_for_all(words, allow_inference=False)
-        indexer = AnnoyIndexer(wordVectors, num_trees=300) 
-        similarityIndex = WordEmbeddingSimilarityIndex(wordVectors, kwargs={'indexer': indexer})
-        similarityMatrix = SparseTermSimilarityMatrix(similarityIndex, dictionary, tfidf)
-        # value = tfidf[dictionary.doc2bow(resume)]
-        query = dictionary.doc2bow(jobDescriptionText)
-        index = SoftCosineSimilarity(
-            tfidf[[dictionary.doc2bow(resume)]], 
-            # tfidf[[dictionary.doc2bow(jobDescriptionText)]], 
-            # [dictionary.doc2bow(resume) for resume in resumeRnk['cleanedResume']],
-            similarityMatrix, 
-        )
-        similarities = index[query]
-        similarityscore.append(similarities)
-    resumeRnk['Similarity Score'] = similarityscore 
-    resumeRnk['Rank'] = resumeRnk['Similarity Score'].rank(ascending=False, method='dense').astype(int)
-    resumeRnk.sort_values(by='Rank', inplace=True)
-    resumeRnk.drop(columns = ['cleanedResume'], inplace = True)
+    # similarityscore = []
+    # for resume in resumeRnk['cleanedResume']:
+    #     documents = [jobDescriptionText, resume] 
+    #     dictionary = Dictionary(documents)
+    #     tfidf = TfidfModel(dictionary=dictionary)
+    #     words = [word for word, count in dictionary.most_common()]
+    #     wordVectors = model.vectors_for_all(words, allow_inference=False)
+    #     indexer = AnnoyIndexer(wordVectors, num_trees=300) 
+    #     similarityIndex = WordEmbeddingSimilarityIndex(wordVectors, kwargs={'indexer': indexer})
+    #     similarityMatrix = SparseTermSimilarityMatrix(similarityIndex, dictionary, tfidf)
+    #     # value = tfidf[dictionary.doc2bow(resume)]
+    #     query = dictionary.doc2bow(jobDescriptionText)
+    #     index = SoftCosineSimilarity(
+    #         tfidf[[dictionary.doc2bow(resume)]], 
+    #         # tfidf[[dictionary.doc2bow(jobDescriptionText)]], 
+    #         # [dictionary.doc2bow(resume) for resume in resumeRnk['cleanedResume']],
+    #         similarityMatrix, 
+    #     )
+    #     similarities = index[query]
+    #     similarityscore.append(similarities)
+    # resumeRnk['Similarity Score'] = similarityscore 
+    # resumeRnk['Rank'] = resumeRnk['Similarity Score'].rank(ascending=False, method='dense').astype(int)
+    # resumeRnk.sort_values(by='Rank', inplace=True)
+    # resumeRnk.drop(columns = ['cleanedResume'], inplace = True)
     return resumeRnk 
 
 # TF-IDF SCORE + WORD EMBEDDINGS SCORE
