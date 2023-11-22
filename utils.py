@@ -88,9 +88,9 @@ def classifyResumes(df):
     # print(f"\n Classification report of Model 2 (LiveCareer Test Set 216 Resumes) %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
     # print(f"\n Classification report of Model 3 (LiveCareer Test Set 216 Resumes) %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
 
-    # print(f"\n Classification report of Model 1 (Non-ideal Set 10 Resumes) %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
-    # print(f"\n Classification report of Model 2 (Non-ideal Set 10 Resumes) %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
-    print(f"\n Classification report of Model 3 (Non-ideal Set 10 Resumes) %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
+    # print(f"\n Classification report of Model 1 (Cross-Industry Set 10 Resumes) %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
+    # print(f"\n Classification report of Model 2 (Cross-Industry Set 10 Resumes) %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
+    print(f"\n Classification report of Model 3 (Cross-Industry Set 10 Resumes) %s:\n%s\n" % (knn, metrics.classification_report(actual, predicted)))
 
     confusion_matrix = metrics.confusion_matrix(actual, predicted)
     plt.figure(figsize=(10, 10))
@@ -114,9 +114,9 @@ def classifyResumes(df):
     # plt.title(f'Confusion Matrix of Model 2 (LiveCareer Test Set 216 Resumes)')
     # plt.title(f'Confusion Matrix of Model 3 (LiveCareer Test Set 216 Resumes)')
 
-    # plt.title(f'Confusion Matrix of Model 1 (Non-ideal Set 10 Resumes)')
-    # plt.title(f'Confusion Matrix of Model 2 (Non-ideal Set 10 Resumes)')
-    plt.title(f'Confusion Matrix of Model 3 (Non-ideal Set 10 Resumes)')
+    # plt.title(f'Confusion Matrix of Model 1 (Cross-Industry Set 10 Resumes)')
+    # plt.title(f'Confusion Matrix of Model 2 (Cross-Industry Set 10 Resumes)')
+    plt.title(f'Confusion Matrix of Model 3 (Cross-Industry Set 10 Resumes)')
 
     plt.show()
     return df 
