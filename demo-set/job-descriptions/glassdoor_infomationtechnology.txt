@@ -1,0 +1,34 @@
+We are seeking a skilled and innovative Web Developer to join our Information Technology team. As a Web Developer, you will play a crucial role in designing, developing, and maintaining our company's web applications and digital platforms. Your expertise in web technologies, problem-solving abilities, and attention to detail will contribute to delivering exceptional user experiences and driving our online presence.
+
+- Collaborate with cross-functional teams to gather requirements and develop user-friendly web applications.
+- Design responsive and visually appealing websites that meet user and business needs.
+- Write clean, efficient, and maintainable code using HTML, CSS, JavaScript, and other web development technologies.
+- Implement and customize Content Management Systems (CMS) to manage website content.
+- Optimize web applications for performance, speed, and security.
+- Troubleshoot and debug issues to ensure seamless functionality and user experience.
+- Stay updated with emerging web development trends, tools, and best practices.
+- Test and validate websites across different browsers, devices, and operating systems.
+- Collaborate with UX/UI designers to ensure the seamless integration of design and functionality.
+
+Requirements:
+
+- Bachelor's degree in Computer Science, Information Technology, or related field.
+- Proven experience as a Web Developer with a portfolio showcasing your work.
+- Strong proficiency in HTML, CSS, JavaScript, and related front-end technologies.
+- Familiarity with web development frameworks and libraries (e.g., React, Angular, Vue).
+- Experience with backend programming languages and databases (e.g., PHP, Python, SQL).
+- Knowledge of web security best practices and cross-browser compatibility.
+- Problem-solving skills to identify and resolve technical challenges.
+- Strong communication skills to collaborate effectively with designers, developers, and stakeholders.
+
+Skills:
+
+- Proficiency in front-end web development languages and technologies.
+- Ability to create visually appealing and responsive user interfaces.
+- Strong coding and debugging skills for efficient web application development.
+- Adaptability to changing technologies and evolving web development trends.
+- Detail-oriented mindset to ensure accurate and error-free coding.
+- Creativity and problem-solving skills to design user-friendly and intuitive interfaces.
+- Time management skills to meet project deadlines and manage multiple tasks.
+- Collaboration abilities to work as part of a multidisciplinary IT team.
+- Strong analytical skills to identify performance bottlenecks and optimize web applications.
